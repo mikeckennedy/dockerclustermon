@@ -1,13 +1,11 @@
 [project]
 name = "dockercluster"
 version = "0.1.0"
-author = "Michael Kennedy"
-author-email = "michael@talkpython.fm"
 description = "A CLI tool for a live view of your docker containers running on a remote server."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = []
 
 [project.scripts]
-ds = "dockercluster:livestatus"
-dockerstats = "dockercluster:livestatus"
+ds = "dockercluster:live_status"
+dockerstats = "dockercluster:live_status"
