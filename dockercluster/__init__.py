@@ -1,6 +1,6 @@
 """dockercluster - A CLI tool for a live view of your docker containers running on a remote server."""
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __author__ = "Michael Kennedy <michael@talkpython.fm>"
 __all__ = []
 
@@ -8,7 +8,7 @@ import datetime
 import re
 import subprocess
 from threading import Thread
-from typing import Callable, Tuple, Annotated
+from typing import Annotated, Callable, Tuple
 
 # noinspection PyPackageRequirements
 import rich.console
@@ -26,19 +26,28 @@ from rich.text import Text
 results = {"ps": [], "stat": [], "free": (0.0, 0.0, 0.0)}
 workers = []
 
-__host_type = Annotated[str, typer.Argument(help="The server DNS name or IP address (e.g. 91.7.5.1 or google.com). "
-                                                 "Enter localhost to run commands on the local machine.")]
-__user_type = Annotated[str, typer.Argument(help="The username of the ssh user for interacting with the server.")]
+__host_type = Annotated[
+    str,
+    typer.Argument(
+        help="The server DNS name or IP address (e.g. 91.7.5.1 or google.com)."
+    ),
+]
+__user_type = Annotated[
+    str,
+    typer.Argument(
+        help="The username of the ssh user for interacting with the server."
+    ),
+]
+
 
 def live_status(host: __host_type, username: __user_type = "root"):
     try:
         print()
 
-        remote = host != "localhost"
-        table = build_table(username, host, remote)
+        table = build_table(username, host)
         with rich.live.Live(table, auto_refresh=False) as live:
             while True:
-                table = build_table(username, host, remote)
+                table = build_table(username, host)
                 live.update(table)
                 live.refresh()
     except KeyboardInterrupt:
@@ -58,18 +67,18 @@ def process_results():
     return reduced, total, total_cpu, total_mem, used
 
 
-def run_update(username: str, host: str, remote: bool):
+def run_update(username: str, host: str):
     global workers
 
     workers.clear()
     workers.append(
-        Thread(target=lambda: run_stat_command(username, host, remote), daemon=True)
+        Thread(target=lambda: run_stat_command(username, host), daemon=True)
     )
     workers.append(
-        Thread(target=lambda: run_ps_command(username, host, remote), daemon=True)
+        Thread(target=lambda: run_ps_command(username, host), daemon=True)
     )
     workers.append(
-        Thread(target=lambda: run_free_command(username, host, remote), daemon=True)
+        Thread(target=lambda: run_free_command(username, host), daemon=True)
     )
 
     for w in workers:
@@ -78,7 +87,7 @@ def run_update(username: str, host: str, remote: bool):
         w.join()
 
 
-def build_table(username: str, host: str, remote: bool):
+def build_table(username: str, host: str):
     # Keys: 'Name', 'Created', 'Status', 'CPU', 'Mem', 'Mem %', 'Limit'
     formatted_date = datetime.datetime.now().strftime("%b %d, %Y @ %I:%M %p")
     table = rich.table.Table(title=f"Docker cluster {host} status {formatted_date}")
@@ -92,7 +101,7 @@ def build_table(username: str, host: str, remote: bool):
     table.add_column("Limit", justify="right", style="white")
     # noinspection PyBroadException
     try:
-        run_update(username, host, remote)
+        run_update(username, host)
         reduced, total, total_cpu, total_mem, used = process_results()
     except Exception as x:
         table.add_row("Error", str(x), "", "", "", "")
@@ -149,16 +158,11 @@ def color_text(text: str, good: Callable) -> Text:
     return Text(text, style="bold red")
 
 
-def run_free_command(
-    username: str, host: str, remote: bool
-) -> Tuple[float, float, float]:
+def run_free_command(username: str, host: str) -> Tuple[float, float, float]:
     try:
         # print("Starting free")
         # Run the program and capture its output
-        if remote:
-            output = subprocess.check_output(["ssh", f"{username}@{host}", "free -m"])
-        else:
-            output = subprocess.check_output(["free -m"])
+        output = subprocess.check_output(["ssh", f"{username}@{host}", "free -m"])
 
         # Convert the output to a string
         output_string = bytes.decode(output, "utf-8")
@@ -282,16 +286,14 @@ def join_results(ps_lines, stat_lines) -> list[dict[str, str]]:
     return joined_lines
 
 
-def run_stat_command(username: str, host: str, remote: bool) -> list[dict[str, str]]:
+def run_stat_command(username: str, host: str) -> list[dict[str, str]]:
+    # noinspection PyBroadException
     try:
         # print("Starring stat")
         # Run the program and capture its output
-        if remote:
-            output = subprocess.check_output(
-                ["ssh", f"{username}@{host}", "docker stats --no-stream"]
-            )
-        else:
-            output = subprocess.check_output(["docker stats --no-stream"])
+        output = subprocess.check_output(
+            ["ssh", f"{username}@{host}", "docker stats --no-stream"]
+        )
 
         # Convert the output to a string
         output_string = bytes.decode(output, "utf-8")
@@ -347,14 +349,11 @@ def parse_stat_header(header_text: str) -> list[Tuple[str, int]]:
     return positions
 
 
-def run_ps_command(username: str, host: str, remote: bool) -> list[dict[str, str]]:
+def run_ps_command(username: str, host: str) -> list[dict[str, str]]:
     try:
         # print("Starting ps ...")
         # Run the program and capture its output
-        if remote:
-            output = subprocess.check_output(["ssh", f"{username}@{host}", "docker ps"])
-        else:
-            output = subprocess.check_output(["docker ps"])
+        output = subprocess.check_output(["ssh", f"{username}@{host}", "docker ps"])
 
         # Convert the output to a string
         output_string = bytes.decode(output, "utf-8")
