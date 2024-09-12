@@ -43,6 +43,9 @@ __user_type = Annotated[
 def live_status(host: __host_type, username: __user_type = "root"):
     try:
         print()
+        if host == 'version':
+            print(f'dockercluster monitoring utility version {__version__}.')
+            return
 
         table = build_table(username, host)
         with rich.live.Live(table, auto_refresh=False) as live:
