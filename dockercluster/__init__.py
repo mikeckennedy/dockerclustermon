@@ -1,29 +1,33 @@
 """dockercluster - A CLI tool for a live view of your docker containers running on a remote server."""
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 __author__ = "Michael Kennedy <michael@talkpython.fm>"
 __all__ = []
 
 import datetime
 import re
 import subprocess
+import time
+from subprocess import CalledProcessError
 from threading import Thread
 from typing import Annotated, Callable, Tuple
 
 # noinspection PyPackageRequirements
 import rich.console
-
 # noinspection PyPackageRequirements
 import rich.live
-
 # noinspection PyPackageRequirements
 import rich.table
 import typer
-
 # noinspection PyPackageRequirements
 from rich.text import Text
 
-results = {"ps": [], "stat": [], "free": (0.0, 0.0, 0.0)}
+results = {
+    "ps": [],
+    "stat": [],
+    "free": (0.0, 0.0, 0.0),
+    "error": None,
+}
 workers = []
 
 __host_type = Annotated[
@@ -48,6 +52,9 @@ def live_status(host: __host_type, username: __user_type = "root"):
             return
 
         table = build_table(username, host)
+        if not table:
+            return
+
         with rich.live.Live(table, auto_refresh=False) as live:
             while True:
                 table = build_table(username, host)
@@ -89,6 +96,9 @@ def run_update(username: str, host: str):
     for w in workers:
         w.join()
 
+    if results["error"]:
+        raise results["error"]
+
 
 def build_table(username: str, host: str):
     # Keys: 'Name', 'Created', 'Status', 'CPU', 'Mem', 'Mem %', 'Limit'
@@ -106,8 +116,12 @@ def build_table(username: str, host: str):
     try:
         run_update(username, host)
         reduced, total, total_cpu, total_mem, used = process_results()
+    except CalledProcessError as cpe:
+        print(f"Error: {cpe}")
+        return None
     except Exception as x:
         table.add_row("Error", str(x), "", "", "", "")
+        time.sleep(1)
         return table
 
     for container in reduced:
@@ -192,8 +206,8 @@ def run_free_command(username: str, host: str) -> Tuple[float, float, float]:
         # print("Free done")
 
         return t
-    except Exception:
-        pass
+    except Exception as x:
+        results["error"] = x
 
 
 def total_sizes(rows: list[dict[str, str]], key: str) -> float:
@@ -317,8 +331,10 @@ def run_stat_command(username: str, host: str) -> list[dict[str, str]]:
 
         # print("Done with stat")
         return entries
-    except Exception:
-        pass
+    except CalledProcessError as e:
+        results["error"] = e
+    except Exception as x:
+        results["error"] = x
 
 
 def parse_free_header(header_text: str) -> list[Tuple[str, int]]:
@@ -376,8 +392,8 @@ def run_ps_command(username: str, host: str) -> list[dict[str, str]]:
         results["ps"] = entries
         # print("Done with ps")
         return entries
-    except Exception:
-        pass
+    except Exception as x:
+        results["error"] = x
 
 
 def parse_line(line: str, header: list[Tuple[str, int]]) -> dict[str, str]:
