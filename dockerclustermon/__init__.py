@@ -1,6 +1,6 @@
-"""dockercluster - A CLI tool for a live view of your docker containers running on a remote server."""
+"""dockerclustermon - A CLI tool for a live view of your docker containers running on a remote server."""
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 __author__ = "Michael Kennedy <michael@talkpython.fm>"
 __all__ = []
 
@@ -48,7 +48,7 @@ def live_status(host: __host_type, username: __user_type = "root"):
     try:
         print()
         if host == 'version':
-            print(f'dockercluster monitoring utility version {__version__}.')
+            print(f'dockerclustermon monitoring utility version {__version__}.')
             return
 
         table = build_table(username, host)
