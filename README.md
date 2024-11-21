@@ -14,7 +14,7 @@ To use the tool, it has one command, `dockerstatus` with a shorter alias `ds`. I
 dockerstatus my-docker-host
 ```
 
-You can optionally pass the username if you're not logging in a `root`. Here is the full help text (thank you Typer):
+You can optionally pass the username if you're not logging in as `root`. Here is the full help text (thank you Typer):
 
 ```bash
  Usage: dockerstatus [OPTIONS] HOST [USERNAME]                          
