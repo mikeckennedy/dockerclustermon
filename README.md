@@ -1,4 +1,4 @@
-# dockerclustermon - A TUI utility to monitor your docker containers
+# Docker Cluster Monitor - A TUI utility to monitor your docker containers
 
 A TUI tool for a live view of your docker containers running on a remote server. Here's a graphic of it running (refreshes every 5 seconds or so automatically):
 
