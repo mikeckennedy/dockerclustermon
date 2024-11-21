@@ -8,6 +8,25 @@ dependencies = [
     "rich>=13.9.4",
     "typer>=0.13.1",
 ]
+license = { text = "MIT" }
+authors = [
+    { name = "Michael Kennedy", email = "michael@talkpython.fm" }
+]
+keywords = ["Docker", "Docker Compose", "Monitoring"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/mikeckennedy/dockerclustermon"
+
+
 
 [project.scripts]
 ds = "dockerclustermon:run_live_status"
