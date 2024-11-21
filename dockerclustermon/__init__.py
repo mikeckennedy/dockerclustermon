@@ -1,6 +1,6 @@
 """dockerclustermon - A CLI tool for a live view of your docker containers running on a remote server."""
 
-__version__ = "0.1.3"
+__version__ = "0.2.0"
 __author__ = "Michael Kennedy <michael@talkpython.fm>"
 __all__ = []
 
