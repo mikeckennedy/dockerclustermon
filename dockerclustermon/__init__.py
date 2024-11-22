@@ -41,13 +41,13 @@ __user_type = Annotated[
     str,
     typer.Argument(help='The username of the ssh user for interacting with the server.'),
 ]
-__ssh = Annotated[
+__no_ssh = Annotated[
     bool,
     typer.Option('--no-ssh', help='Pass this flag to run locally instead of through ssh.'),
 ]
 
 
-def live_status(host: __host_type = 'localhost', username: __user_type = 'root', no_ssh: __ssh = False):
+def live_status(host: __host_type = 'localhost', username: __user_type = 'root', no_ssh: __no_ssh = False):
     try:
         print()
         if host == 'version':
