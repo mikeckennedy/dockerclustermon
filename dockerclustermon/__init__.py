@@ -251,11 +251,13 @@ def reduce_lines(joined: list[dict[str, str]]) -> list[dict[str, str]]:
             "CPU": str(int(float(j["CPU %"].replace("%", "")))) + " %",
             "Mem": j["MEM USAGE"]
             .replace("MB", " MB")
+            .replace("KB", " KB")
             .replace("GB", " GB")
             .replace("  ", " "),
             "Mem %": str(int(float(j["MEM %"].replace("%", "")))) + " %",
             "Limit": j["MEM LIMIT"]
             .replace("MB", " MB")
+            .replace("KB", " KB")
             .replace("GB", " GB")
             .replace("  ", " "),
         }
