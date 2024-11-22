@@ -28,7 +28,7 @@ from rich.text import Text
 results = {
     'ps': [],
     'stat': [],
-    'free': (0.0, 0.0, 0.0),
+    'free': (0.0, 0.0, 0.0001),
     'error': None,
 }
 workers = []
@@ -53,6 +53,9 @@ def live_status(host: __host_type = 'localhost', username: __user_type = 'root',
         if host == 'version':
             print(f'dockerclustermon monitoring utility version {__version__}.')
             return
+
+        if host in {'localhost', '127.0.0.1', '::1'}:
+            no_ssh = True
 
         table = build_table(username, host, no_ssh)
         if not table:
