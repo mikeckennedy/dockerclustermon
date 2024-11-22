@@ -1,6 +1,6 @@
 """dockerclustermon - A CLI tool for a live view of your docker containers running on a remote server."""
 
-__version__ = '0.2.1'
+__version__ = '0.2.2'
 __author__ = 'Michael Kennedy <michael@talkpython.fm>'
 __all__ = []
 
@@ -203,6 +203,13 @@ def run_free_command(username: str, host: str, no_ssh: bool) -> Tuple[float, flo
 
         return t
     except Exception as x:
+        msg = str(x)
+        if 'No such file or directory: \'free\'' in msg:
+            results['error'] = None
+            t = 0.001, 0, 0
+            results['free'] = t
+            return t
+
         results['error'] = x
 
 
