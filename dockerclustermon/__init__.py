@@ -1,6 +1,6 @@
 """dockerclustermon - A CLI tool for a live view of your docker containers running on a remote server."""
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 __author__ = "Michael Kennedy <michael@talkpython.fm>"
 __all__ = []
 
@@ -250,14 +250,14 @@ def reduce_lines(joined: list[dict[str, str]]) -> list[dict[str, str]]:
             "Status": j["STATUS"],
             "CPU": str(int(float(j["CPU %"].replace("%", "")))) + " %",
             "Mem": j["MEM USAGE"]
-            .replace("MB", " MB")
             .replace("KB", " KB")
+            .replace("MB", " MB")
             .replace("GB", " GB")
             .replace("  ", " "),
             "Mem %": str(int(float(j["MEM %"].replace("%", "")))) + " %",
             "Limit": j["MEM LIMIT"]
-            .replace("MB", " MB")
             .replace("KB", " KB")
+            .replace("MB", " MB")
             .replace("GB", " GB")
             .replace("  ", " "),
         }
@@ -294,10 +294,12 @@ def join_results(ps_lines, stat_lines) -> list[dict[str, str]]:
     stat_lines: dict[str, str]
 
     for ps_dict, stat_dict in zip(ps_lines, stat_lines):
+        # noinspection PyTypeChecker
         if ps_dict[join_on] != stat_dict[join_on]:
             raise Exception("Lines do not match")
 
         joined = ps_dict.copy()
+        # noinspection PyArgumentList
         joined.update(**stat_dict)
 
         joined_lines.append(joined)
