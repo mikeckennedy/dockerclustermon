@@ -41,22 +41,26 @@ __user_type = Annotated[
     str,
     typer.Argument(help='The username of the ssh user for interacting with the server.'),
 ]
+__ssh = Annotated[
+    bool,
+    typer.Option('--no-ssh', help='Pass this flag to run locally instead of through ssh.'),
+]
 
 
-def live_status(host: __host_type, username: __user_type = 'root'):
+def live_status(host: __host_type = 'localhost', username: __user_type = 'root', no_ssh: __ssh = False):
     try:
         print()
         if host == 'version':
             print(f'dockerclustermon monitoring utility version {__version__}.')
             return
 
-        table = build_table(username, host)
+        table = build_table(username, host, no_ssh)
         if not table:
             return
 
         with rich.live.Live(table, auto_refresh=False) as live:
             while True:
-                table = build_table(username, host)
+                table = build_table(username, host, no_ssh)
                 live.update(table)
                 live.refresh()
     except KeyboardInterrupt:
@@ -76,13 +80,13 @@ def process_results():
     return reduced, total, total_cpu, total_mem, used
 
 
-def run_update(username: str, host: str):
+def run_update(username: str, host: str, no_ssh: bool):
     global workers
 
     workers.clear()
-    workers.append(Thread(target=lambda: run_stat_command(username, host), daemon=True))
-    workers.append(Thread(target=lambda: run_ps_command(username, host), daemon=True))
-    workers.append(Thread(target=lambda: run_free_command(username, host), daemon=True))
+    workers.append(Thread(target=lambda: run_stat_command(username, host, no_ssh), daemon=True))
+    workers.append(Thread(target=lambda: run_ps_command(username, host, no_ssh), daemon=True))
+    workers.append(Thread(target=lambda: run_free_command(username, host, no_ssh), daemon=True))
 
     for w in workers:
         w.start()
@@ -93,7 +97,7 @@ def run_update(username: str, host: str):
         raise results['error']
 
 
-def build_table(username: str, host: str):
+def build_table(username: str, host: str, no_ssh: bool):
     # Keys: 'Name', 'Created', 'Status', 'CPU', 'Mem', 'Mem %', 'Limit'
     formatted_date = datetime.datetime.now().strftime('%b %d, %Y @ %I:%M %p')
     table = rich.table.Table(title=f'Docker cluster {host} status {formatted_date}')
@@ -107,7 +111,7 @@ def build_table(username: str, host: str):
     table.add_column('Limit', justify='right', style='white')
     # noinspection PyBroadException
     try:
-        run_update(username, host)
+        run_update(username, host, no_ssh)
         reduced, total, total_cpu, total_mem, used = process_results()
     except CalledProcessError as cpe:
         print(f'Error: {cpe}')
@@ -166,11 +170,14 @@ def color_text(text: str, good: Callable) -> Text:
     return Text(text, style='bold red')
 
 
-def run_free_command(username: str, host: str) -> Tuple[float, float, float]:
+def run_free_command(username: str, host: str, no_ssh: bool) -> Tuple[float, float, float]:
     try:
         # print("Starting free")
         # Run the program and capture its output
-        output = subprocess.check_output(['ssh', f'{username}@{host}', 'free -m'])
+        if no_ssh:
+            output = subprocess.check_output(['free', '-m'])
+        else:
+            output = subprocess.check_output(['ssh', f'{username}@{host}', 'free -m'])
 
         # Convert the output to a string
         output_string = bytes.decode(output, 'utf-8')
@@ -288,12 +295,15 @@ def join_results(ps_lines, stat_lines) -> list[dict[str, str]]:
     return joined_lines
 
 
-def run_stat_command(username: str, host: str) -> list[dict[str, str]]:
+def run_stat_command(username: str, host: str, no_ssh: bool) -> list[dict[str, str]]:
     # noinspection PyBroadException
     try:
         # print("Starring stat")
         # Run the program and capture its output
-        output = subprocess.check_output(['ssh', f'{username}@{host}', 'docker stats --no-stream'])
+        if no_ssh:
+            output = subprocess.check_output(['docker', 'stats', '--no-stream'])
+        else:
+            output = subprocess.check_output(['ssh', f'{username}@{host}', 'docker stats --no-stream'])
 
         # Convert the output to a string
         output_string = bytes.decode(output, 'utf-8')
@@ -349,11 +359,14 @@ def parse_stat_header(header_text: str) -> list[Tuple[str, int]]:
     return positions
 
 
-def run_ps_command(username: str, host: str) -> list[dict[str, str]]:
+def run_ps_command(username: str, host: str, no_ssh: bool) -> list[dict[str, str]]:
     try:
         # print("Starting ps ...")
         # Run the program and capture its output
-        output = subprocess.check_output(['ssh', f'{username}@{host}', 'docker ps'])
+        if no_ssh:
+            output = subprocess.check_output(['docker', 'ps'])
+        else:
+            output = subprocess.check_output(['ssh', f'{username}@{host}', 'docker ps'])
 
         # Convert the output to a string
         output_string = bytes.decode(output, 'utf-8')
