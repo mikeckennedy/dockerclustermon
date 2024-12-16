@@ -57,6 +57,6 @@ and in the path.
 Compatibility
 -------------
 
-Docker Cluster Monitor has been tested against Ubunutu Linux. It should work on any system that 
+Docker Cluster Monitor has been tested against Ubuntu Linux. It should work on any system that 
 supports SSH and has the Docker CLI tools installed. Note that it does **not** work on the local 
 machine at the moment. PRs are welcome. ;)
