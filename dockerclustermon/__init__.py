@@ -10,7 +10,7 @@ import subprocess
 import time
 from subprocess import CalledProcessError
 from threading import Thread
-from typing import Annotated, Callable, Tuple
+from typing import Annotated, Callable, List, Tuple
 
 # noinspection PyPackageRequirements
 import rich.console
@@ -47,7 +47,41 @@ __no_ssh = Annotated[
 ]
 
 
-def live_status(host: __host_type = 'localhost', username: __user_type = 'root', no_ssh: __no_ssh = False):
+def get_user_host(
+    username: str,
+    host: str,
+) -> str:
+    """
+    Get the user and host connection string.
+
+    Args:
+        username (str): The name of the user.
+        host (str): The host.
+    """
+    return f'{username}@{host}'
+
+
+def get_command(
+    args: List[str],
+    user_host: str,
+    no_ssh: bool,
+) -> List[str]:
+    """
+    Build the command to execute.
+
+    Args:
+        args (List[str]): The list of arguments.
+        user_host (str): The user and host connection string.
+        no_ssh (bool): Whether the command should be executed locally or through SSH.
+    """
+    return args if no_ssh else ['ssh', user_host, ' '.join(args)]
+
+
+def live_status(
+    host: __host_type = 'localhost',
+    username: __user_type = 'root',
+    no_ssh: __no_ssh = False,
+) -> None:
     try:
         print()
         if host == 'version':
@@ -86,10 +120,12 @@ def process_results():
 def run_update(username: str, host: str, no_ssh: bool):
     global workers
 
+    user_host = get_user_host(username, host)
+
     workers.clear()
-    workers.append(Thread(target=lambda: run_stat_command(username, host, no_ssh), daemon=True))
-    workers.append(Thread(target=lambda: run_ps_command(username, host, no_ssh), daemon=True))
-    workers.append(Thread(target=lambda: run_free_command(username, host, no_ssh), daemon=True))
+    workers.append(Thread(target=lambda: run_stat_command(user_host, no_ssh), daemon=True))
+    workers.append(Thread(target=lambda: run_ps_command(user_host, no_ssh), daemon=True))
+    workers.append(Thread(target=lambda: run_free_command(user_host, no_ssh), daemon=True))
 
     for w in workers:
         w.start()
@@ -173,14 +209,11 @@ def color_text(text: str, good: Callable) -> Text:
     return Text(text, style='bold red')
 
 
-def run_free_command(username: str, host: str, no_ssh: bool) -> Tuple[float, float, float]:
+def run_free_command(user_host: str, no_ssh: bool) -> Tuple[float, float, float]:
     try:
         # print("Starting free")
         # Run the program and capture its output
-        if no_ssh:
-            output = subprocess.check_output(['free', '-m'])
-        else:
-            output = subprocess.check_output(['ssh', f'{username}@{host}', 'free -m'])
+        output = subprocess.check_output(get_command(['free', '-m'], user_host, no_ssh))
 
         # Convert the output to a string
         output_string = bytes.decode(output, 'utf-8')
@@ -305,15 +338,18 @@ def join_results(ps_lines, stat_lines) -> list[dict[str, str]]:
     return joined_lines
 
 
-def run_stat_command(username: str, host: str, no_ssh: bool) -> list[dict[str, str]]:
+def run_stat_command(user_host: str, no_ssh: bool) -> list[dict[str, str]]:
     # noinspection PyBroadException
     try:
         # print("Starring stat")
         # Run the program and capture its output
-        if no_ssh:
-            output = subprocess.check_output(['docker', 'stats', '--no-stream'])
-        else:
-            output = subprocess.check_output(['ssh', f'{username}@{host}', 'docker stats --no-stream'])
+        output = subprocess.check_output(
+            get_command(
+                ['docker', 'stats', '--no-stream'],
+                user_host,
+                no_ssh,
+            )
+        )
 
         # Convert the output to a string
         output_string = bytes.decode(output, 'utf-8')
@@ -369,14 +405,11 @@ def parse_stat_header(header_text: str) -> list[Tuple[str, int]]:
     return positions
 
 
-def run_ps_command(username: str, host: str, no_ssh: bool) -> list[dict[str, str]]:
+def run_ps_command(user_host: str, no_ssh: bool) -> list[dict[str, str]]:
     try:
         # print("Starting ps ...")
         # Run the program and capture its output
-        if no_ssh:
-            output = subprocess.check_output(['docker', 'ps'])
-        else:
-            output = subprocess.check_output(['ssh', f'{username}@{host}', 'docker ps'])
+        output = subprocess.check_output(get_command(['docker', 'ps'], user_host, no_ssh))
 
         # Convert the output to a string
         output_string = bytes.decode(output, 'utf-8')
