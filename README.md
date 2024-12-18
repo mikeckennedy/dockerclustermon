@@ -26,6 +26,7 @@ You can optionally pass the username if you're not logging in as `root`. Here is
 ╰───────────────────────────────────────────────────────────────────────╯
 ╭─ Options ─────────────────────────────────────────────────────────────╮
 | --ssh-config    Whether the host is a SSH config entry or not.        |
+| --sudo          Whether to run as the super user or not.              |
 │ --help          Show this message and exit.                           │
 ╰───────────────────────────────────────────────────────────────────────╯
 ```
