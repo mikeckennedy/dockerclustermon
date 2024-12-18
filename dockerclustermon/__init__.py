@@ -45,11 +45,16 @@ __no_ssh = Annotated[
     bool,
     typer.Option('--no-ssh', help='Pass this flag to run locally instead of through ssh.'),
 ]
+__ssh_config = Annotated[
+    bool,
+    typer.Option('--ssh-config', help='Pass this flag to treat the host as a ssh config entry.'),
+]
 
 
 def get_user_host(
     username: str,
     host: str,
+    ssh_config: bool,
 ) -> str:
     """
     Get the user and host connection string.
@@ -57,8 +62,9 @@ def get_user_host(
     Args:
         username (str): The name of the user.
         host (str): The host.
+        ssh_config (bool): Whether the host is a ssh config entry or not.
     """
-    return f'{username}@{host}'
+    return host if ssh_config else f'{username}@{host}'
 
 
 def get_command(
@@ -81,6 +87,7 @@ def live_status(
     host: __host_type = 'localhost',
     username: __user_type = 'root',
     no_ssh: __no_ssh = False,
+    ssh_config: __ssh_config = False,
 ) -> None:
     try:
         print()
@@ -91,13 +98,13 @@ def live_status(
         if host in {'localhost', '127.0.0.1', '::1'}:
             no_ssh = True
 
-        table = build_table(username, host, no_ssh)
+        table = build_table(username, host, no_ssh, ssh_config)
         if not table:
             return
 
         with rich.live.Live(table, auto_refresh=False) as live:
             while True:
-                table = build_table(username, host, no_ssh)
+                table = build_table(username, host, no_ssh, ssh_config)
                 live.update(table)
                 live.refresh()
     except KeyboardInterrupt:
@@ -117,10 +124,10 @@ def process_results():
     return reduced, total, total_cpu, total_mem, used
 
 
-def run_update(username: str, host: str, no_ssh: bool):
+def run_update(username: str, host: str, no_ssh: bool, ssh_config: bool):
     global workers
 
-    user_host = get_user_host(username, host)
+    user_host = get_user_host(username, host, ssh_config)
 
     workers.clear()
     workers.append(Thread(target=lambda: run_stat_command(user_host, no_ssh), daemon=True))
@@ -136,7 +143,7 @@ def run_update(username: str, host: str, no_ssh: bool):
         raise results['error']
 
 
-def build_table(username: str, host: str, no_ssh: bool):
+def build_table(username: str, host: str, no_ssh: bool, ssh_config: bool):
     # Keys: 'Name', 'Created', 'Status', 'CPU', 'Mem', 'Mem %', 'Limit'
     formatted_date = datetime.datetime.now().strftime('%b %d, %Y @ %I:%M %p')
     table = rich.table.Table(title=f'Docker cluster {host} status {formatted_date}')
@@ -150,7 +157,7 @@ def build_table(username: str, host: str, no_ssh: bool):
     table.add_column('Limit', justify='right', style='white')
     # noinspection PyBroadException
     try:
-        run_update(username, host, no_ssh)
+        run_update(username, host, no_ssh, ssh_config)
         reduced, total, total_cpu, total_mem, used = process_results()
     except CalledProcessError as cpe:
         print(f'Error: {cpe}')
