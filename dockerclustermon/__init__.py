@@ -7,6 +7,7 @@ __all__ = []
 import datetime
 import re
 import subprocess
+import sys
 import time
 from subprocess import CalledProcessError
 from threading import Thread
@@ -516,5 +517,12 @@ def run_live_status():
     typer.run(live_status)
 
 
+def version_and_exit_if_requested():
+    if '--version' in sys.argv:
+        typer.echo(f'dockerclustermon version {__version__}')
+        sys.exit(0)
+
+
 if __name__ == '__main__':
+    version_and_exit_if_requested()
     run_live_status()
