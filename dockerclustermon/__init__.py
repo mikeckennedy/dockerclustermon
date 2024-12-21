@@ -10,7 +10,7 @@ import subprocess
 import time
 from subprocess import CalledProcessError
 from threading import Thread
-from typing import Annotated, Callable, List, Tuple
+from typing import Annotated, Callable, TypedDict, Optional
 
 # noinspection PyPackageRequirements
 import rich.console
@@ -25,7 +25,15 @@ import typer
 # noinspection PyPackageRequirements
 from rich.text import Text
 
-results = {
+
+class ResultsType(TypedDict):
+    ps: list[dict[str, str]]
+    stat: list[dict[str, str]]
+    free: tuple[float, float, float]
+    error: Optional[Exception]
+
+
+results: ResultsType = {
     'ps': [],
     'stat': [],
     'free': (0.0, 0.0, 0.0001),
@@ -68,17 +76,17 @@ def get_user_host(
     Args:
         username (str): The name of the user.
         host (str): The host.
-        ssh_config (bool): Whether the host is a ssh config entry or not.
+        ssh_config (bool): Whether the host is an ssh config entry or not.
     """
     return host if ssh_config else f'{username}@{host}'
 
 
 def get_command(
-    args: List[str],
+    args: list[str],
     user_host: str,
     no_ssh: bool,
     run_as_sudo: bool = False,
-) -> List[str]:
+) -> list[str]:
     """
     Build the command to execute.
 
@@ -86,7 +94,7 @@ def get_command(
         args (List[str]): The list of arguments.
         user_host (str): The user and host connection string.
         no_ssh (bool): Whether the command should be executed locally or through SSH.
-        run_as_sudo (bool, optional): Whether the command should be executed as the super user or not.
+        run_as_sudo (bool, optional): Whether the command should be executed as the superuser or not.
             Defaults to False.
     """
     cmd_args = (['sudo'] + args) if run_as_sudo else args
@@ -228,7 +236,7 @@ def color_text(text: str, good: Callable) -> Text:
     return Text(text, style='bold red')
 
 
-def run_free_command(user_host: str, no_ssh: bool) -> Tuple[float, float, float]:
+def run_free_command(user_host: str, no_ssh: bool) -> tuple[float, float, float]:
     try:
         # print("Starting free")
         # Run the program and capture its output
@@ -394,7 +402,7 @@ def run_stat_command(user_host: str, no_ssh: bool, run_as_sudo: bool) -> list[di
         results['error'] = x
 
 
-def parse_free_header(header_text: str) -> list[Tuple[str, int]]:
+def parse_free_header(header_text: str) -> list[tuple[str, int]]:
     names = ['system', 'used', 'free', 'shared', 'buff/cache', 'available']
     positions = []
     for n in names:
@@ -405,7 +413,7 @@ def parse_free_header(header_text: str) -> list[Tuple[str, int]]:
     return positions
 
 
-def parse_stat_header(header_text: str) -> list[Tuple[str, int]]:
+def parse_stat_header(header_text: str) -> list[tuple[str, int]]:
     names = [
         'CONTAINER ID',
         'NAME',
@@ -451,7 +459,7 @@ def run_ps_command(user_host: str, no_ssh: bool, run_as_sudo: bool) -> list[dict
         results['error'] = x
 
 
-def parse_line(line: str, header: list[Tuple[str, int]]) -> dict[str, str]:
+def parse_line(line: str, header: list[tuple[str, int]]) -> dict[str, str]:
     local_results = {}
     tmp_headers = header + [('END', 100000)]
     total_len = 0
@@ -468,7 +476,7 @@ def parse_line(line: str, header: list[Tuple[str, int]]) -> dict[str, str]:
     return local_results
 
 
-def parse_ps_header(header_text: str) -> list[Tuple[str, int]]:
+def parse_ps_header(header_text: str) -> list[tuple[str, int]]:
     names = ['CONTAINER ID', 'IMAGE', 'COMMAND', 'CREATED', 'STATUS', 'PORTS', 'NAMES']
     positions = []
     for n in names:
