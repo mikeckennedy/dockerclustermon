@@ -47,7 +47,9 @@ __no_ssh = Annotated[
 ]
 __ssh_config = Annotated[
     bool,
-    typer.Option('--ssh-config', help='Pass this flag to treat the host as a ssh config entry.'),
+    typer.Option(
+        '--ssh-config', help='Pass this flag to treat the host as a ssh config entry (e.g. {username}@{host}).'
+    ),
 ]
 __sudo = Annotated[
     bool,
@@ -257,7 +259,7 @@ def run_free_command(user_host: str, no_ssh: bool) -> Tuple[float, float, float]
         return t
     except Exception as x:
         msg = str(x)
-        if 'No such file or directory: \'free\'' in msg:
+        if "No such file or directory: 'free'" in msg:
             results['error'] = None
             t = 0.001, 0, 0
             results['free'] = t
