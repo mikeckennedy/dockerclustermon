@@ -12,17 +12,13 @@ from subprocess import CalledProcessError
 from threading import Thread
 from typing import Annotated, Callable, TypedDict, Optional
 
-# noinspection PyPackageRequirements
 import rich.console
 
-# noinspection PyPackageRequirements
 import rich.live
 
-# noinspection PyPackageRequirements
 import rich.table
 import typer
 
-# noinspection PyPackageRequirements
 from rich.text import Text
 
 
