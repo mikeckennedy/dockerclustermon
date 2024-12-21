@@ -518,7 +518,7 @@ def run_live_status():
 
 
 def version_and_exit_if_requested():
-    if '--version' in sys.argv:
+    if '--version' in sys.argv or '-v' in sys.argv:
         typer.echo(f'dockerclustermon version {__version__}')
         sys.exit(0)
 
