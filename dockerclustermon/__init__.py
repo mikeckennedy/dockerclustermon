@@ -13,13 +13,12 @@ from subprocess import CalledProcessError
 from threading import Thread
 from typing import Annotated, Callable, TypedDict, Optional
 
-import rich.console
-
 import rich.live
 
 import rich.table
 import typer
 
+from rich.console import Console
 from rich.text import Text
 
 
@@ -37,6 +36,7 @@ results: ResultsType = {
     'error': None,
 }
 workers = []
+console = Console()
 
 __host_type = Annotated[
     str,
@@ -115,7 +115,9 @@ def live_status(
         if host in {'localhost', '127.0.0.1', '::1'}:
             no_ssh = True
 
-        table = build_table(username, host, no_ssh, ssh_config, run_as_sudo)
+        with console.status('Loading...'):
+            table = build_table(username, host, no_ssh, ssh_config, run_as_sudo)
+
         if not table:
             return
 
