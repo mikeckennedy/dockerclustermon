@@ -30,7 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.4] - 2025-10-04
 
 ### Added
-- Loading spinner when the app starts and is connecting to the server and loading initial data
+- Loading spinner with version info displayed during app startup and initial data loading
+- Multi-line startup display showing "Docker Cluster Monitor v0.2.4" followed by "Loading..." with spinner
+
+### Fixed
+- `--version` flag now works correctly when installed via pipx or uv tool
 
 ---
 
