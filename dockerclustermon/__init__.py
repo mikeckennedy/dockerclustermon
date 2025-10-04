@@ -124,8 +124,10 @@ def live_status(
         if host in {'localhost', '127.0.0.1', '::1'}:
             no_ssh = True
 
+        console.print(f'Docker Cluster Monitor v{__version__}')
         with console.status('Loading...'):
             table = build_table(username, host, no_ssh, ssh_config, run_as_sudo)
+        console.clear()
 
         if not table:
             return
