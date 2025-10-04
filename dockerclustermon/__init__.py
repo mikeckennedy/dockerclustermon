@@ -109,7 +109,7 @@ def live_status(
     try:
         print()
         if host == 'version':
-            print(f'dockerclustermon monitoring utility version {__version__}.')
+            print(f'Docker Cluster Monitor version {__version__}.')
             return
 
         if host in {'localhost', '127.0.0.1', '::1'}:
@@ -521,7 +521,7 @@ def run_live_status():
 
 def version_and_exit_if_requested():
     if '--version' in sys.argv or '-v' in sys.argv:
-        typer.echo(f'dockerclustermon version {__version__}')
+        typer.echo(f'Docker Cluster Monitor version {__version__}')
         sys.exit(0)
 
 
