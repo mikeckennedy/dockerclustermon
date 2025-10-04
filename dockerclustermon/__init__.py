@@ -60,6 +60,10 @@ __sudo = Annotated[
     bool,
     typer.Option('--sudo', help='Pass this flag to run as super user.'),
 ]
+__version_opt = Annotated[
+    Optional[bool],
+    typer.Option('--version', '-v', help='Show version and exit.', is_eager=True),
+]
 
 
 def get_user_host(
@@ -105,7 +109,12 @@ def live_status(
     no_ssh: __no_ssh = False,
     ssh_config: __ssh_config = False,
     run_as_sudo: __sudo = False,
+    version: __version_opt = None,
 ) -> None:
+    if version:
+        typer.echo(f'Docker Cluster Monitor version {__version__}')
+        raise typer.Exit()
+
     try:
         print()
         if host == 'version':
