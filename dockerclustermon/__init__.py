@@ -1,6 +1,8 @@
 """dockerclustermon - A CLI tool for a live view of your docker containers running on a remote server."""
 
-__version__ = '0.2.4'
+from importlib.metadata import version
+
+__version__ = version("dockerclustermon")
 __author__ = 'Michael Kennedy <michael@talkpython.fm>'
 __all__ = []
 
