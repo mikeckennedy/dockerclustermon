@@ -20,13 +20,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 
 
 ### Fixed
+-
+
+### Security
+-
+
+---
+
+## [0.2.5] - 2025-10-04
+
+### Fixed
 - Fixed "unsupported operand type(s) for +=: 'int' and 'str'" error that occurred when docker stats returned unexpected memory unit formats or malformed data
 - Added handling for bare bytes ('B') unit in memory values
 - Added error handling for malformed percentage values
 - Files: `dockerclustermon/__init__.py` (functions: `total_sizes`, `total_percent`)
-
-### Security
--
 
 ---
 
