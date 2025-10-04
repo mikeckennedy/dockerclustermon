@@ -31,7 +31,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Loading spinner when the app starts and is connecting to the server and loading initial data
-- Files: `dockerclustermon/__init__.py`
 
 ---
 
@@ -40,7 +39,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Enhanced the ability to run locally without SSH
 - Now works on macOS
-- Files: `dockerclustermon/__init__.py`
 
 ### Notes
 - Thank you @sanders41 for the PR
@@ -51,7 +49,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Support for reporting KB usage of memory in containers (previously was MB or above)
-- Files: `dockerclustermon/__init__.py`
 
 ### Notes
 - Thank you @sanders41
@@ -62,7 +59,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Initial release - Hello world
-- Files: `dockerclustermon/__init__.py`, `pyproject.toml`, `README.md`
 
 ---
 
