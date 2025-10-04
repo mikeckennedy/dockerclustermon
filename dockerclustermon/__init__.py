@@ -2,7 +2,7 @@
 
 from importlib.metadata import version
 
-__version__ = version("dockerclustermon")
+__version__ = version('dockerclustermon')
 __author__ = 'Michael Kennedy <michael@talkpython.fm>'
 __all__ = []
 
@@ -301,6 +301,13 @@ def total_sizes(rows: list[dict[str, str]], key: str) -> float:
         elif 'KB' in value:
             value = float(value.replace('KB', ''))
             value = value / 1024 / 1024
+        elif 'B' in value:
+            # Handle bytes without prefix
+            value = float(value.replace('B', ''))
+            value = value / 1024 / 1024 / 1024
+        else:
+            # If no unit found, skip this value to avoid type error
+            continue
         total += value
 
     return total
@@ -310,8 +317,12 @@ def total_percent(rows: list[dict[str, str]], key: str) -> float:
     # e.g. 50.88%
     total = 0
     for row in rows:
-        value = float(row[key].replace('%', ''))
-        total += value
+        try:
+            value = float(row[key].replace('%', ''))
+            total += value
+        except (ValueError, AttributeError):
+            # Skip malformed percentage values
+            continue
 
     return total
 
