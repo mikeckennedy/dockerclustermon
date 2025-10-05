@@ -428,18 +428,19 @@ def run_stat_command(user_host: str, no_ssh: bool, run_as_sudo: bool) -> list[di
 def parse_free_header(header_text: str) -> list[tuple[str, int]]:
     names = ['system', 'used', 'free', 'shared', 'buff/cache', 'available']
     positions = []
+    header_lower = header_text.lower()
+
     for n in names:
-        try:
-            idx = header_text.index(n)
-            item = (n, idx)
-            positions.append(item)
-        except ValueError:
+        idx = header_lower.find(n.lower())
+        if idx == -1:
             raise ValueError(
                 f"Failed to parse 'free' command output. Expected column '{n}' not found.\n"
                 f'Actual header: {header_text!r}\n'
                 f'Expected columns: {names}\n'
                 f'This may indicate a platform compatibility issue.'
             )
+        item = (n, idx)
+        positions.append(item)
 
     return positions
 
@@ -456,18 +457,19 @@ def parse_stat_header(header_text: str) -> list[tuple[str, int]]:
         'PIDS',
     ]
     positions = []
+    header_lower = header_text.lower()
+
     for n in names:
-        try:
-            idx = header_text.index(n)
-            item = (n, idx)
-            positions.append(item)
-        except ValueError:
+        idx = header_lower.find(n.lower())
+        if idx == -1:
             raise ValueError(
                 f"Failed to parse 'docker stats' output. Expected column '{n}' not found.\n"
                 f'Actual header: {header_text!r}\n'
                 f'Expected columns: {names}\n'
                 f'This may indicate a Docker version or platform difference.'
             )
+        item = (n, idx)
+        positions.append(item)
 
     return positions
 
@@ -518,18 +520,19 @@ def parse_line(line: str, header: list[tuple[str, int]]) -> dict[str, str]:
 def parse_ps_header(header_text: str) -> list[tuple[str, int]]:
     names = ['CONTAINER ID', 'IMAGE', 'COMMAND', 'CREATED', 'STATUS', 'PORTS', 'NAMES']
     positions = []
+    header_lower = header_text.lower()
+
     for n in names:
-        try:
-            idx = header_text.index(n)
-            item = (n, idx)
-            positions.append(item)
-        except ValueError:
+        idx = header_lower.find(n.lower())
+        if idx == -1:
             raise ValueError(
                 f"Failed to parse 'docker ps' output. Expected column '{n}' not found.\n"
                 f'Actual header: {header_text!r}\n'
                 f'Expected columns: {names}\n'
                 f'This may indicate a Docker version or platform difference.'
             )
+        item = (n, idx)
+        positions.append(item)
 
     return positions
 
