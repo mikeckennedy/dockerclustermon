@@ -20,7 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 
 
 ### Fixed
--
+- Improved error messages for "substring not found" errors on Windows and other platforms
+- Added detailed diagnostic output showing actual vs expected Docker command headers when parsing fails
+- Enhanced error handling in `parse_free_header`, `parse_stat_header`, and `parse_ps_header` functions
+- Files: `dockerclustermon/__init__.py`
 
 ### Security
 -

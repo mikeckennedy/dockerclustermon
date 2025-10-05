@@ -429,9 +429,17 @@ def parse_free_header(header_text: str) -> list[tuple[str, int]]:
     names = ['system', 'used', 'free', 'shared', 'buff/cache', 'available']
     positions = []
     for n in names:
-        idx = header_text.index(n)
-        item = (n, idx)
-        positions.append(item)
+        try:
+            idx = header_text.index(n)
+            item = (n, idx)
+            positions.append(item)
+        except ValueError:
+            raise ValueError(
+                f"Failed to parse 'free' command output. Expected column '{n}' not found.\n"
+                f'Actual header: {header_text!r}\n'
+                f'Expected columns: {names}\n'
+                f'This may indicate a platform compatibility issue.'
+            )
 
     return positions
 
@@ -449,9 +457,17 @@ def parse_stat_header(header_text: str) -> list[tuple[str, int]]:
     ]
     positions = []
     for n in names:
-        idx = header_text.index(n)
-        item = (n, idx)
-        positions.append(item)
+        try:
+            idx = header_text.index(n)
+            item = (n, idx)
+            positions.append(item)
+        except ValueError:
+            raise ValueError(
+                f"Failed to parse 'docker stats' output. Expected column '{n}' not found.\n"
+                f'Actual header: {header_text!r}\n'
+                f'Expected columns: {names}\n'
+                f'This may indicate a Docker version or platform difference.'
+            )
 
     return positions
 
@@ -503,9 +519,17 @@ def parse_ps_header(header_text: str) -> list[tuple[str, int]]:
     names = ['CONTAINER ID', 'IMAGE', 'COMMAND', 'CREATED', 'STATUS', 'PORTS', 'NAMES']
     positions = []
     for n in names:
-        idx = header_text.index(n)
-        item = (n, idx)
-        positions.append(item)
+        try:
+            idx = header_text.index(n)
+            item = (n, idx)
+            positions.append(item)
+        except ValueError:
+            raise ValueError(
+                f"Failed to parse 'docker ps' output. Expected column '{n}' not found.\n"
+                f'Actual header: {header_text!r}\n'
+                f'Expected columns: {names}\n'
+                f'This may indicate a Docker version or platform difference.'
+            )
 
     return positions
 
