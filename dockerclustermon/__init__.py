@@ -11,7 +11,7 @@ import re
 import subprocess
 import sys
 import time
-from subprocess import CalledProcessError
+from subprocess import CalledProcessError, TimeoutExpired
 from threading import Thread
 from typing import Annotated, Callable, TypedDict, Optional
 
@@ -62,6 +62,10 @@ __sudo = Annotated[
     bool,
     typer.Option('--sudo', help='Pass this flag to run as super user.'),
 ]
+__timeout = Annotated[
+    Optional[int],
+    typer.Option('--timeout', help='Displays an error if the server fails to respond in timeout seconds.'),
+]
 __version_opt = Annotated[
     Optional[bool],
     typer.Option('--version', '-v', help='Show version and exit.', is_eager=True),
@@ -111,6 +115,7 @@ def live_status(
     no_ssh: __no_ssh = False,
     ssh_config: __ssh_config = False,
     run_as_sudo: __sudo = False,
+    timeout: __timeout = None,
     version: __version_opt = None,
 ) -> None:
     if version:
@@ -128,7 +133,7 @@ def live_status(
 
         console.print(f'Docker Cluster Monitor v{__version__}')
         with console.status('Loading...'):
-            table = build_table(username, host, no_ssh, ssh_config, run_as_sudo)
+            table = build_table(username, host, no_ssh, ssh_config, run_as_sudo, timeout)
         console.clear()
 
         if not table:
@@ -136,7 +141,7 @@ def live_status(
 
         with rich.live.Live(table, auto_refresh=False) as live:
             while True:
-                table = build_table(username, host, no_ssh, ssh_config, run_as_sudo)
+                table = build_table(username, host, no_ssh, ssh_config, run_as_sudo, timeout)
                 live.update(table)
                 live.refresh()
     except KeyboardInterrupt:
@@ -156,15 +161,16 @@ def process_results():
     return reduced, total, total_cpu, total_mem, used
 
 
-def run_update(username: str, host: str, no_ssh: bool, ssh_config: bool, run_as_sudo: bool):
+def run_update(username: str, host: str, no_ssh: bool, ssh_config: bool, run_as_sudo: bool, timeout: Optional[int]):
     global workers
+    results['error'] = None
 
     user_host = get_user_host(username, host, ssh_config)
 
     workers.clear()
-    workers.append(Thread(target=lambda: run_stat_command(user_host, no_ssh, run_as_sudo), daemon=True))
-    workers.append(Thread(target=lambda: run_ps_command(user_host, no_ssh, run_as_sudo), daemon=True))
-    workers.append(Thread(target=lambda: run_free_command(user_host, no_ssh), daemon=True))
+    workers.append(Thread(target=lambda: run_stat_command(user_host, no_ssh, run_as_sudo, timeout), daemon=True))
+    workers.append(Thread(target=lambda: run_ps_command(user_host, no_ssh, run_as_sudo, timeout), daemon=True))
+    workers.append(Thread(target=lambda: run_free_command(user_host, no_ssh, timeout), daemon=True))
 
     for w in workers:
         w.start()
@@ -175,7 +181,7 @@ def run_update(username: str, host: str, no_ssh: bool, ssh_config: bool, run_as_
         raise results['error']
 
 
-def build_table(username: str, host: str, no_ssh: bool, ssh_config: bool, run_as_sudo: bool):
+def build_table(username: str, host: str, no_ssh: bool, ssh_config: bool, run_as_sudo: bool, timeout: Optional[int]):
     # Keys: 'Name', 'Created', 'Status', 'CPU', 'Mem', 'Mem %', 'Limit'
     formatted_date = datetime.datetime.now().strftime('%b %d, %Y @ %I:%M %p')
     table = rich.table.Table(title=f'Docker cluster {host} status {formatted_date}')
@@ -189,8 +195,20 @@ def build_table(username: str, host: str, no_ssh: bool, ssh_config: bool, run_as
     table.add_column('Limit', justify='right', style='white')
     # noinspection PyBroadException
     try:
-        run_update(username, host, no_ssh, ssh_config, run_as_sudo)
+        run_update(username, host, no_ssh, ssh_config, run_as_sudo, timeout)
         reduced, total, total_cpu, total_mem, used = process_results()
+    except TimeoutExpired:
+        timeout_formatted_date = datetime.datetime.now().strftime('%b %d, %Y @ %I:%M:%S %p')
+        table.add_row(
+            'Error',
+            f'The server did not response after {timeout} seconds on {timeout_formatted_date}. Retrying',
+            '',
+            '',
+            '',
+            '',
+        )
+        time.sleep(1)
+        return table
     except CalledProcessError as cpe:
         print(f'Error: {cpe}')
         return None
@@ -248,11 +266,11 @@ def color_text(text: str, good: Callable) -> Text:
     return Text(text, style='bold red')
 
 
-def run_free_command(user_host: str, no_ssh: bool) -> tuple[float, float, float]:
+def run_free_command(user_host: str, no_ssh: bool, timeout: Optional[int]) -> tuple[float, float, float]:
     try:
         # print("Starting free")
         # Run the program and capture its output
-        output = subprocess.check_output(get_command(['free', '-m'], user_host, no_ssh))
+        output = subprocess.check_output(get_command(['free', '-m'], user_host, no_ssh), timeout=timeout)
 
         # Convert the output to a string
         output_string = bytes.decode(output, 'utf-8')
@@ -388,7 +406,7 @@ def join_results(ps_lines, stat_lines) -> list[dict[str, str]]:
     return joined_lines
 
 
-def run_stat_command(user_host: str, no_ssh: bool, run_as_sudo: bool) -> list[dict[str, str]]:
+def run_stat_command(user_host: str, no_ssh: bool, run_as_sudo: bool, timeout: Optional[int]) -> list[dict[str, str]]:
     # noinspection PyBroadException
     try:
         # print("Starring stat")
@@ -399,7 +417,8 @@ def run_stat_command(user_host: str, no_ssh: bool, run_as_sudo: bool) -> list[di
                 user_host,
                 no_ssh,
                 run_as_sudo,
-            )
+            ),
+            timeout=timeout,
         )
 
         # Convert the output to a string
@@ -419,6 +438,8 @@ def run_stat_command(user_host: str, no_ssh: bool, run_as_sudo: bool) -> list[di
 
         # print("Done with stat")
         return entries
+    except TimeoutExpired as t:
+        results['error'] = t
     except CalledProcessError as e:
         results['error'] = e
     except Exception as x:
@@ -474,11 +495,11 @@ def parse_stat_header(header_text: str) -> list[tuple[str, int]]:
     return positions
 
 
-def run_ps_command(user_host: str, no_ssh: bool, run_as_sudo: bool) -> list[dict[str, str]]:
+def run_ps_command(user_host: str, no_ssh: bool, run_as_sudo: bool, timeout: Optional[int]) -> list[dict[str, str]]:
     try:
         # print("Starting ps ...")
         # Run the program and capture its output
-        output = subprocess.check_output(get_command(['docker', 'ps'], user_host, no_ssh, run_as_sudo))
+        output = subprocess.check_output(get_command(['docker', 'ps'], user_host, no_ssh, run_as_sudo), timeout=timeout)
 
         # Convert the output to a string
         output_string = bytes.decode(output, 'utf-8')
