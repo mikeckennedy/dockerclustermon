@@ -20,6 +20,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 
 
 ### Fixed
+-
+
+### Security
+-
+
+---
+
+## [0.2.6] - 2025-10-16
+
+### Added
+- Added `--timeout` option to specify a timeout (in seconds) for server responses
+- Displays error message if server fails to respond within the specified timeout period
+- Files: `dockerclustermon/__init__.py`
+
+### Fixed
 - Improved error messages for "substring not found" errors on Windows and other platforms
 - Added detailed diagnostic output showing actual vs expected Docker command headers when parsing fails
 - Enhanced error handling in `parse_free_header`, `parse_stat_header`, and `parse_ps_header` functions
@@ -27,8 +42,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replaced `.index()` with `.find()` for more robust error detection
 - Files: `dockerclustermon/__init__.py`
 
-### Security
--
+### Notes
+- Thank you @sanders41 for the timeout feature PR
 
 ---
 
