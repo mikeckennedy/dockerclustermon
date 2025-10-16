@@ -1,6 +1,6 @@
 [project]
 name = "dockerclustermon"
-version = "0.2.5"
+version = "0.2.6"
 description = "A CLI tool for a live view of your docker containers running on a remote server."
 readme = "README.md"
 requires-python = ">=3.10"
