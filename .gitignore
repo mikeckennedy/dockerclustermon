@@ -163,3 +163,7 @@ cython_debug/
 .vscode/
 
 /uv.lock
+
+
+AGENTS.md
+.agent-*.json

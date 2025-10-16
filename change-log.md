@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -
 
 ### Changed
+- Rewrote README.md with user-centric, benefit-driven approach
+- Improved information hierarchy: problem → solution → quick start → details
+- Enhanced value proposition and color-coding explanation
+- Simplified installation and usage instructions
+- Files: `README.md`
 - Set default timeout value to 30 seconds for the `--timeout` CLI option
 - Changed timeout parameter type from `Optional[int]` to `int` throughout the codebase
 - Files: `dockerclustermon/__init__.py`

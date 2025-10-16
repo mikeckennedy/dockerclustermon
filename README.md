@@ -1,64 +1,104 @@
-# Docker Cluster Monitor - A TUI utility to monitor your docker containers
+# Docker Cluster Monitor
 
-A TUI tool for a live view of your docker containers running on a remote server. Here's a graphic of it running (refreshes every 5 seconds or so automatically):
+**Stop SSH-ing into servers just to check container status.**
 
-![](https://mkennedy-shared.nyc3.digitaloceanspaces.com/docker-status.gif)
+Get a live, color-coded dashboard of all your Docker containers across remote servers-right from your terminal. See CPU, memory, and health at a glance, updated automatically every few seconds.
 
-Notice that it uses color to communicate outlier values. For example, low CPU is green, middle-of-the-road CPU is cyan, and heavy CPU usage is red. Similarly for memory. The memory limit column reflects the deploy>memory limit in Docker Compose for that container and the percentage reported is for the imposed memory limit rather than the machine physical memory limits.
+![Docker Cluster Monitor in action](https://mkennedy-shared.nyc3.digitaloceanspaces.com/docker-status.gif)
 
-## Usage
+## Why Docker Cluster Monitor?
 
-To use the tool, it has one command, `dockerstatus` with a shorter alias `ds`. If you are running a set of Docker containers (say via Docker Compose) on server `my-docker-host`, then just run:
+**⚡ Save Time**: No more logging into servers to run `docker stats` or `docker ps`  
+**👀 Instant Clarity**: Color-coded metrics show problems at a glance  
+**🔄 Stay Informed**: Auto-refreshing dashboard keeps you updated  
+**🚀 Zero Configuration**: Just point it at your server and go
+
+## See Everything at a Glance
+
+**Smart color coding** helps you spot issues instantly:
+- 🟢 **Green**: Healthy, low resource usage
+- 🔵 **Cyan**: Moderate load-everything's fine
+- 🔴 **Red**: High CPU or memory usage-time to investigate
+
+Memory percentages reflect your Docker Compose deployment limits, so you know exactly how close each container is to its configured threshold-not just the physical machine limits.
+
+## Quick Start
+
+### Install (choose one)
+
+**Using uv** (recommended):
+```bash
+uv tool install dockerclustermon
+```
+
+**Using pipx**:
+```bash
+pipx install dockerclustermon
+```
+
+> **Note**: Make sure you have [uv](https://docs.astral.sh/uv/getting-started/installation/) or [pipx](https://pipx.pypa.io/stable/installation/) installed first.
+
+### Monitor Your Containers
+
+Run `dockerstatus` (or the shorter `ds` alias) with your server hostname:
 
 ```bash
 dockerstatus my-docker-host
 ```
 
-You can optionally pass the username if you're not logging in as `root`. Here is the full help text (thank you Typer):
+That's it! You now have a live dashboard of your containers, refreshing automatically.
+
+## How to Use
+
+### Basic Usage
+
+Monitor containers on a remote server:
+```bash
+dockerstatus server.example.com
+```
+
+Specify a different SSH user (defaults to `root`):
+```bash
+dockerstatus server.example.com myuser
+```
+
+Use with SSH config entries:
+```bash
+dockerstatus my-server --ssh-config
+```
+
+Run with sudo privileges:
+```bash
+dockerstatus server.example.com --sudo
+```
+
+### Complete Command Reference
 
 ```bash
  Usage: dockerstatus [OPTIONS] HOST [USERNAME]                          
 ╭─ Arguments ───────────────────────────────────────────────────────────╮
 │ * host     TEXT       The server DNS name or IP address (e.g. 91.7.5.1│ 
 │                       or google.com). [default: None]  [required]     │
-│   username [USERNAME] The username of the ssh user for interacting    │
+│   username [USERNAME] The username of the SSH user for interacting    │
 │                       with the server. [default: root]                │
 ╰───────────────────────────────────────────────────────────────────────╯
 ╭─ Options ─────────────────────────────────────────────────────────────╮
-| --ssh-config    Whether the host is a SSH config entry or not.        |
-| --sudo          Whether to run as the super user or not.              |
-│ --help          Show this message and exit.                           │
+│ --ssh-config          Whether the host is a SSH config entry or not.  │
+│ --sudo                Whether to run as the super user or not.        │
+│ --help                Show this message and exit.                     │
 ╰───────────────────────────────────────────────────────────────────────╯
 ```
 
-## Installation
+## System Requirements
 
-This package is available on PyPI as dockerclustermon. However, it is ideally used as a CLI tool 
-and not imported into programs. As such, using **uv** or **pipx** will be most useful. Take your pick:
+Docker Cluster Monitor works on any system that supports SSH and has Docker CLI tools installed on the remote server.
 
-### uv
+**Tested on**: Ubuntu Linux  
+**Should work on**: Most Linux distributions and Unix-like systems  
+**Current limitation**: Does not work on the local machine (remote servers only)
 
-```bash
-uv tool install dockerclustermon
-```
+> **Want local support?** Contributions welcome! PRs accepted.
 
-Of course this requires that you have 
-[uv installed](https://docs.astral.sh/uv/getting-started/installation/) 
-and in the path.
+## About
 
-### pipx
-
-```bash
-pipx install dockerclustermon
-```
-
-And this requires that you have [pipx installed](https://pipx.pypa.io/stable/installation/) 
-and in the path.
-
-
-Compatibility
--------------
-
-Docker Cluster Monitor has been tested against Ubuntu Linux. It should work on any system that 
-supports SSH and has the Docker CLI tools installed. Note that it does **not** work on the local 
-machine at the moment. PRs are welcome. ;)
+Docker Cluster Monitor is available on [PyPI](https://pypi.org/project/dockerclustermon/) as `dockerclustermon`. While it's published as a Python package, it's designed as a standalone CLI tool rather than a library to import into your programs.
