@@ -24,19 +24,14 @@ Memory percentages reflect your Docker Compose deployment limits, so you know ex
 
 ## Quick Start
 
-### Install (choose one)
+### Install
 
 **Using uv** (recommended):
 ```bash
 uv tool install dockerclustermon
 ```
 
-**Using pipx**:
-```bash
-pipx install dockerclustermon
-```
-
-> **Note**: Make sure you have [uv](https://docs.astral.sh/uv/getting-started/installation/) or [pipx](https://pipx.pypa.io/stable/installation/) installed first.
+> **Note**: Make sure you have [uv](https://docs.astral.sh/uv/getting-started/installation/) installed first.
 
 ### Monitor Your Containers
 
@@ -74,20 +69,8 @@ dockerstatus server.example.com --sudo
 
 ### Complete Command Reference
 
-```bash
- Usage: dockerstatus [OPTIONS] HOST [USERNAME]                          
-╭─ Arguments ───────────────────────────────────────────────────────────╮
-│ * host     TEXT       The server DNS name or IP address (e.g. 91.7.5.1│ 
-│                       or google.com). [default: None]  [required]     │
-│   username [USERNAME] The username of the SSH user for interacting    │
-│                       with the server. [default: root]                │
-╰───────────────────────────────────────────────────────────────────────╯
-╭─ Options ─────────────────────────────────────────────────────────────╮
-│ --ssh-config          Whether the host is a SSH config entry or not.  │
-│ --sudo                Whether to run as the super user or not.        │
-│ --help                Show this message and exit.                     │
-╰───────────────────────────────────────────────────────────────────────╯
-```
+![](https://blobs.talkpython.fm/dockerclustermon-help.png?cache_id=029533)
+
 
 ## System Requirements
 
