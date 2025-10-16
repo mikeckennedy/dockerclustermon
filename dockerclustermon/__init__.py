@@ -13,13 +13,11 @@ import sys
 import time
 from subprocess import CalledProcessError, TimeoutExpired
 from threading import Thread
-from typing import Annotated, Callable, TypedDict, Optional
+from typing import Annotated, Callable, Optional, TypedDict
 
 import rich.live
-
 import rich.table
 import typer
-
 from rich.console import Console
 from rich.text import Text
 
@@ -63,7 +61,7 @@ __sudo = Annotated[
     typer.Option('--sudo', help='Pass this flag to run as super user.'),
 ]
 __timeout = Annotated[
-    Optional[int],
+    int,
     typer.Option('--timeout', help='Displays an error if the server fails to respond in timeout seconds.'),
 ]
 __version_opt = Annotated[
@@ -115,7 +113,7 @@ def live_status(
     no_ssh: __no_ssh = False,
     ssh_config: __ssh_config = False,
     run_as_sudo: __sudo = False,
-    timeout: __timeout = None,
+    timeout: __timeout = 30,
     version: __version_opt = None,
 ) -> None:
     if version:
@@ -161,7 +159,7 @@ def process_results():
     return reduced, total, total_cpu, total_mem, used
 
 
-def run_update(username: str, host: str, no_ssh: bool, ssh_config: bool, run_as_sudo: bool, timeout: Optional[int]):
+def run_update(username: str, host: str, no_ssh: bool, ssh_config: bool, run_as_sudo: bool, timeout: int):
     global workers
     results['error'] = None
 
@@ -181,7 +179,7 @@ def run_update(username: str, host: str, no_ssh: bool, ssh_config: bool, run_as_
         raise results['error']
 
 
-def build_table(username: str, host: str, no_ssh: bool, ssh_config: bool, run_as_sudo: bool, timeout: Optional[int]):
+def build_table(username: str, host: str, no_ssh: bool, ssh_config: bool, run_as_sudo: bool, timeout: int):
     # Keys: 'Name', 'Created', 'Status', 'CPU', 'Mem', 'Mem %', 'Limit'
     formatted_date = datetime.datetime.now().strftime('%b %d, %Y @ %I:%M %p')
     table = rich.table.Table(title=f'Docker cluster {host} status {formatted_date}')
@@ -266,7 +264,7 @@ def color_text(text: str, good: Callable) -> Text:
     return Text(text, style='bold red')
 
 
-def run_free_command(user_host: str, no_ssh: bool, timeout: Optional[int]) -> tuple[float, float, float]:
+def run_free_command(user_host: str, no_ssh: bool, timeout: int) -> tuple[float, float, float]:
     try:
         # print("Starting free")
         # Run the program and capture its output
@@ -406,7 +404,7 @@ def join_results(ps_lines, stat_lines) -> list[dict[str, str]]:
     return joined_lines
 
 
-def run_stat_command(user_host: str, no_ssh: bool, run_as_sudo: bool, timeout: Optional[int]) -> list[dict[str, str]]:
+def run_stat_command(user_host: str, no_ssh: bool, run_as_sudo: bool, timeout: int) -> list[dict[str, str]]:
     # noinspection PyBroadException
     try:
         # print("Starring stat")
@@ -495,7 +493,7 @@ def parse_stat_header(header_text: str) -> list[tuple[str, int]]:
     return positions
 
 
-def run_ps_command(user_host: str, no_ssh: bool, run_as_sudo: bool, timeout: Optional[int]) -> list[dict[str, str]]:
+def run_ps_command(user_host: str, no_ssh: bool, run_as_sudo: bool, timeout: int) -> list[dict[str, str]]:
     try:
         # print("Starting ps ...")
         # Run the program and capture its output
