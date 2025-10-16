@@ -4,7 +4,7 @@
 
 Get a live, color-coded dashboard of all your Docker containers across remote servers-right from your terminal. See CPU, memory, and health at a glance, updated automatically every few seconds.
 
-![Docker Cluster Monitor in action](https://mkennedy-shared.nyc3.digitaloceanspaces.com/docker-status.gif)
+![Docker Cluster Monitor in action](https://blobs.talkpython.fm/docker-status.gif?cache_id=c4e79e)
 
 ## Why Docker Cluster Monitor?
 
