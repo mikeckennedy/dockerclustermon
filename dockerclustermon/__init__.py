@@ -14,10 +14,10 @@ import time
 from subprocess import CalledProcessError, TimeoutExpired
 from threading import Thread
 from typing import Annotated, Callable, Optional, TypedDict
-import setproctitle
 
 import rich.live
 import rich.table
+import setproctitle
 import typer
 from rich.console import Console
 from rich.text import Text
@@ -143,7 +143,7 @@ def live_status(
         with rich.live.Live(table, auto_refresh=False) as live:
             while True:
                 table = build_table(username, host, no_ssh, ssh_config, run_as_sudo, timeout)
-                live.update(table)
+                live.update(table) # type: ignore
                 live.refresh()
     except KeyboardInterrupt:
         for w in workers:
@@ -305,6 +305,7 @@ def run_free_command(user_host: str, no_ssh: bool, timeout: int) -> tuple[float,
             return t
 
         results['error'] = x
+        return 0.002, 0, 0
 
 
 def total_sizes(rows: list[dict[str, str]], key: str) -> float:
