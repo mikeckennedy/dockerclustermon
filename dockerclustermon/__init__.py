@@ -14,6 +14,7 @@ import time
 from subprocess import CalledProcessError, TimeoutExpired
 from threading import Thread
 from typing import Annotated, Callable, Optional, TypedDict
+import setproctitle
 
 import rich.live
 import rich.table
@@ -119,6 +120,8 @@ def live_status(
     if version:
         typer.echo(f'Docker Cluster Monitor version {__version__}')
         raise typer.Exit()
+
+    setproctitle.setproctitle('dockerclustermon')
 
     try:
         print()
