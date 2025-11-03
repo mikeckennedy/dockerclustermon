@@ -11,14 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -
 
 ### Changed
-- Rewrote README.md with user-centric, benefit-driven approach
-- Improved information hierarchy: problem → solution → quick start → details
-- Enhanced value proposition and color-coding explanation
-- Simplified installation and usage instructions
-- Files: `README.md`
-- Set default timeout value to 30 seconds for the `--timeout` CLI option
-- Changed timeout parameter type from `Optional[int]` to `int` throughout the codebase
-- Files: `dockerclustermon/__init__.py`
+-
 
 ### Deprecated
 - 
@@ -31,6 +24,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 -
+
+---
+
+## [0.2.7] - 2025-11-03
+
+### Changed
+- Rewrote README.md with user-centric, benefit-driven approach
+- Improved information hierarchy: problem → solution → quick start → details
+- Set running process name to **dockerclustermon** (was **python**)
+- Simplified installation and usage instructions
+- Files: `README.md`
+- Set default timeout value to 30 seconds for the `--timeout` CLI option
+- Changed timeout parameter type from `Optional[int]` to `int` throughout the codebase
+- Files: `dockerclustermon/__init__.py`
 
 ---
 
