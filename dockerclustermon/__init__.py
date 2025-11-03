@@ -143,7 +143,7 @@ def live_status(
         with rich.live.Live(table, auto_refresh=False) as live:
             while True:
                 table = build_table(username, host, no_ssh, ssh_config, run_as_sudo, timeout)
-                live.update(table) # type: ignore
+                live.update(table)  # type: ignore
                 live.refresh()
     except KeyboardInterrupt:
         for w in workers:
@@ -310,7 +310,7 @@ def run_free_command(user_host: str, no_ssh: bool, timeout: int) -> tuple[float,
 
 def total_sizes(rows: list[dict[str, str]], key: str) -> float:
     # e.g. 1.5GB, 1.5MB, 1.5KB
-    total = 0
+    total = 0.0
     for row in rows:
         value = row[key]
         if 'GB' in value:
@@ -335,7 +335,7 @@ def total_sizes(rows: list[dict[str, str]], key: str) -> float:
 
 def total_percent(rows: list[dict[str, str]], key: str) -> float:
     # e.g. 50.88%
-    total = 0
+    total = 0.0
     for row in rows:
         try:
             value = float(row[key].replace('%', ''))
@@ -392,7 +392,7 @@ def join_results(ps_lines, stat_lines) -> list[dict[str, str]]:
 
     joined_lines = []
     ps_dict: dict[str, str]
-    stat_lines: dict[str, str]
+    stat_lines: list[dict[str, str]]
 
     for ps_dict, stat_dict in zip(ps_lines, stat_lines):
         # noinspection PyTypeChecker
@@ -442,10 +442,13 @@ def run_stat_command(user_host: str, no_ssh: bool, run_as_sudo: bool, timeout: i
         return entries
     except TimeoutExpired as t:
         results['error'] = t
+        return []
     except CalledProcessError as e:
         results['error'] = e
+        return []
     except Exception as x:
         results['error'] = x
+        return []
 
 
 def parse_free_header(header_text: str) -> list[tuple[str, int]]:
@@ -521,6 +524,7 @@ def run_ps_command(user_host: str, no_ssh: bool, run_as_sudo: bool, timeout: int
         return entries
     except Exception as x:
         results['error'] = x
+        return []
 
 
 def parse_line(line: str, header: list[tuple[str, int]]) -> dict[str, str]:
