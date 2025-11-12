@@ -12,11 +12,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New `run_command_with_debug()` helper function that captures both stdout and stderr from subprocess commands
 - Debug mode displays stderr output in real-time (in yellow) when it occurs
 - Error messages now include full stdout/stderr output when debug mode is enabled
-- Files: `dockerclustermon/__init__.py`
+- **Performance optimization**: Integrated Paramiko library for persistent SSH connections
+- Added `paramiko>=3.5.0` as a dependency
+- New SSH connection management functions: `get_ssh_client()`, `close_ssh_client()`, and `run_ssh_command()`
+- SSH connections now persist across multiple command executions instead of reconnecting for each command
+- Files: `dockerclustermon/__init__.py`, `pyproject.toml`
 
 ### Changed
 - Replaced `subprocess.check_output()` with `subprocess.run()` for better error handling and stderr capture
 - Updated `run_free_command()`, `run_stat_command()`, and `run_ps_command()` to use new debug helper
+- **Major performance improvement**: Refactored SSH command execution to use persistent connections via Paramiko
+- Modified `run_command_with_debug()` to support both local subprocess execution and remote SSH execution
+- Updated `run_free_command()`, `run_stat_command()`, and `run_ps_command()` to accept optional SSH client parameter
+- Modified `run_update()` to create and reuse a single SSH connection for all three commands
+- SSH connection is now established once and reused for `docker ps`, `docker stats`, and `free` commands
+- This eliminates the overhead of creating 3 separate SSH connections on every refresh cycle
 - Files: `dockerclustermon/__init__.py`
 
 ### Deprecated

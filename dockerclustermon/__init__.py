@@ -7,6 +7,7 @@ __author__ = 'Michael Kennedy <michael@talkpython.fm>'
 __all__ = []
 
 import datetime
+import os
 import re
 import subprocess
 import sys
@@ -15,6 +16,7 @@ from subprocess import CalledProcessError, TimeoutExpired
 from threading import Thread
 from typing import Annotated, Callable, Optional, TypedDict
 
+import paramiko
 import rich.live
 import rich.table
 import setproctitle
@@ -39,6 +41,7 @@ results: ResultsType = {
 workers = []
 console = Console()
 DEBUG_MODE: bool = False
+ssh_client: Optional[paramiko.SSHClient] = None
 
 __host_type = Annotated[
     str,
@@ -113,17 +116,145 @@ def get_command(
     return cmd_args if no_ssh else ['ssh', user_host, ' '.join(cmd_args)]
 
 
-def run_command_with_debug(cmd: list[str], timeout: int) -> tuple[str, str, int]:
+def get_ssh_client(username: str, host: str, ssh_config: bool) -> Optional[paramiko.SSHClient]:
+    """
+    Get or create a persistent SSH connection using Paramiko.
+
+    Args:
+        username: The SSH username
+        host: The SSH host
+        ssh_config: Whether to use SSH config
+
+    Returns:
+        An SSH client or None if connection fails
+    """
+    global ssh_client
+
+    # Return existing connection if it's still alive
+    if ssh_client is not None:
+        try:
+            # Test if connection is still alive
+            transport = ssh_client.get_transport()
+            if transport and transport.is_active():
+                return ssh_client
+        except Exception:
+            # Connection is dead, clean it up
+            try:
+                ssh_client.close()
+            except Exception:
+                pass
+            ssh_client = None
+
+    # Create new connection
+    try:
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+        if ssh_config:
+            # Load SSH config and connect using it
+            ssh_config_obj = paramiko.SSHConfig()
+            ssh_config_path = os.path.expanduser('~/.ssh/config')
+            try:
+                with open(ssh_config_path) as f:
+                    ssh_config_obj.parse(f)
+                host_config = ssh_config_obj.lookup(host)
+                client.connect(
+                    hostname=host_config.get('hostname', host),
+                    username=host_config.get('user', username),
+                    port=int(host_config.get('port', 22)),
+                    timeout=10,
+                )
+            except FileNotFoundError:
+                # No SSH config file, try direct connection
+                client.connect(hostname=host, username=username, timeout=10)
+        else:
+            # Direct connection
+            client.connect(hostname=host, username=username, timeout=10)
+
+        ssh_client = client
+        return ssh_client
+
+    except Exception as e:
+        if DEBUG_MODE:
+            console.print(f'[yellow]DEBUG: Failed to create SSH connection: {e}[/yellow]')
+        return None
+
+
+def close_ssh_client():
+    """Close the persistent SSH connection."""
+    global ssh_client
+    if ssh_client is not None:
+        try:
+            ssh_client.close()
+        except Exception:
+            pass
+        ssh_client = None
+
+
+def run_ssh_command(client: paramiko.SSHClient, command: str, timeout: int) -> tuple[str, str, int]:
+    """
+    Execute a command over SSH using Paramiko.
+
+    Args:
+        client: The SSH client
+        command: The command to execute
+        timeout: Timeout in seconds
+
+    Returns:
+        Tuple of (stdout, stderr, returncode)
+    """
+    try:
+        stdin, stdout, stderr = client.exec_command(command, timeout=timeout)
+        stdout_str = stdout.read().decode('utf-8')
+        stderr_str = stderr.read().decode('utf-8')
+        returncode = stdout.channel.recv_exit_status()
+
+        if DEBUG_MODE and stderr_str:
+            console.print(f'[yellow]DEBUG stderr from {command[:50]}...: {stderr_str.strip()}[/yellow]')
+
+        if returncode != 0:
+            error_msg = f'Command {command} returned non-zero exit status {returncode}.'
+            if DEBUG_MODE:
+                error_msg += f'\nSTDOUT: {stdout_str}\nSTDERR: {stderr_str}'
+            raise CalledProcessError(returncode, command, stdout_str, stderr_str)
+
+        return stdout_str, stderr_str, returncode
+
+    except paramiko.SSHException as e:
+        if DEBUG_MODE:
+            console.print(f'[red]DEBUG SSH error for {command[:50]}...: {e}[/red]')
+        raise CalledProcessError(1, command, '', str(e))
+    except Exception as e:
+        if DEBUG_MODE:
+            console.print(f'[red]DEBUG error for {command[:50]}...: {e}[/red]')
+        raise
+
+
+def run_command_with_debug(
+    cmd: list[str],
+    timeout: int,
+    ssh_client: Optional[paramiko.SSHClient] = None,
+    run_as_sudo: bool = False,
+) -> tuple[str, str, int]:
     """
     Run a command and capture stdout, stderr, and return code.
 
     Args:
         cmd: The command to run as a list of strings
         timeout: Timeout in seconds
+        ssh_client: Optional SSH client for remote execution
+        run_as_sudo: Whether to run with sudo
 
     Returns:
         Tuple of (stdout, stderr, returncode)
     """
+    # If we have an SSH client, use it
+    if ssh_client is not None:
+        cmd_args = (['sudo'] + cmd) if run_as_sudo else cmd
+        command_str = ' '.join(cmd_args)
+        return run_ssh_command(ssh_client, command_str, timeout)
+
+    # Otherwise, run locally
     try:
         result = subprocess.run(
             cmd,
@@ -198,6 +329,7 @@ def live_status(
     except KeyboardInterrupt:
         for w in workers:
             w.join()
+        close_ssh_client()
         print('kthxbye!')
     except TimeoutExpired as te:
         print()
@@ -240,10 +372,15 @@ def run_update(username: str, host: str, no_ssh: bool, ssh_config: bool, run_as_
 
     user_host = get_user_host(username, host, ssh_config)
 
+    # Get or create SSH client for remote operations
+    client = None if no_ssh else get_ssh_client(username, host, ssh_config)
+
     workers.clear()
-    workers.append(Thread(target=lambda: run_stat_command(user_host, no_ssh, run_as_sudo, timeout), daemon=True))
-    workers.append(Thread(target=lambda: run_ps_command(user_host, no_ssh, run_as_sudo, timeout), daemon=True))
-    workers.append(Thread(target=lambda: run_free_command(user_host, no_ssh, timeout), daemon=True))
+    workers.append(
+        Thread(target=lambda: run_stat_command(user_host, no_ssh, run_as_sudo, timeout, client), daemon=True)
+    )
+    workers.append(Thread(target=lambda: run_ps_command(user_host, no_ssh, run_as_sudo, timeout, client), daemon=True))
+    workers.append(Thread(target=lambda: run_free_command(user_host, no_ssh, timeout, client), daemon=True))
 
     for w in workers:
         w.start()
@@ -360,10 +497,17 @@ def color_text(text: str, good: Callable) -> Text:
     return Text(text, style='bold red')
 
 
-def run_free_command(user_host: str, no_ssh: bool, timeout: int) -> tuple[float, float, float]:
+def run_free_command(
+    user_host: str, no_ssh: bool, timeout: int, client: Optional[paramiko.SSHClient] = None
+) -> tuple[float, float, float]:
     try:
         # Run the program and capture its output
-        stdout, stderr, returncode = run_command_with_debug(get_command(['free', '-m'], user_host, no_ssh), timeout)
+        if no_ssh:
+            # Local execution
+            stdout, stderr, returncode = run_command_with_debug(['free', '-m'], timeout)
+        else:
+            # Remote execution using persistent SSH connection
+            stdout, stderr, returncode = run_command_with_debug(['free', '-m'], timeout, ssh_client=client)
 
         # Convert the string to individual lines
         lines = [line.strip() for line in stdout.split('\n') if line and line.strip()]
@@ -507,19 +651,27 @@ def join_results(ps_lines, stat_lines) -> list[dict[str, str]]:
     return joined_lines
 
 
-def run_stat_command(user_host: str, no_ssh: bool, run_as_sudo: bool, timeout: int) -> list[dict[str, str]]:
+def run_stat_command(
+    user_host: str, no_ssh: bool, run_as_sudo: bool, timeout: int, client: Optional[paramiko.SSHClient] = None
+) -> list[dict[str, str]]:
     # noinspection PyBroadException
     try:
         # Run the program and capture its output
-        stdout, stderr, returncode = run_command_with_debug(
-            get_command(
+        if no_ssh:
+            # Local execution
+            stdout, stderr, returncode = run_command_with_debug(
                 ['docker', 'stats', '--no-stream'],
-                user_host,
-                no_ssh,
-                run_as_sudo,
-            ),
-            timeout,
-        )
+                timeout,
+                run_as_sudo=run_as_sudo,
+            )
+        else:
+            # Remote execution using persistent SSH connection
+            stdout, stderr, returncode = run_command_with_debug(
+                ['docker', 'stats', '--no-stream'],
+                timeout,
+                ssh_client=client,
+                run_as_sudo=run_as_sudo,
+            )
 
         # Convert the string to individual lines
         lines = [line.strip() for line in stdout.split('\n') if line and line.strip()]
@@ -593,12 +745,19 @@ def parse_stat_header(header_text: str) -> list[tuple[str, int]]:
     return positions
 
 
-def run_ps_command(user_host: str, no_ssh: bool, run_as_sudo: bool, timeout: int) -> list[dict[str, str]]:
+def run_ps_command(
+    user_host: str, no_ssh: bool, run_as_sudo: bool, timeout: int, client: Optional[paramiko.SSHClient] = None
+) -> list[dict[str, str]]:
     try:
         # Run the program and capture its output
-        stdout, stderr, returncode = run_command_with_debug(
-            get_command(['docker', 'ps'], user_host, no_ssh, run_as_sudo), timeout
-        )
+        if no_ssh:
+            # Local execution
+            stdout, stderr, returncode = run_command_with_debug(['docker', 'ps'], timeout, run_as_sudo=run_as_sudo)
+        else:
+            # Remote execution using persistent SSH connection
+            stdout, stderr, returncode = run_command_with_debug(
+                ['docker', 'ps'], timeout, ssh_client=client, run_as_sudo=run_as_sudo
+            )
 
         # Convert the string to individual lines
         lines = [line.strip() for line in stdout.split('\n') if line and line.strip()]
