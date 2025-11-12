@@ -8,6 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 
+
+### Changed
+- 
+
+### Deprecated
+- 
+
+### Removed
+- 
+
+### Fixed
+- 
+
+### Security
+-
+
+---
+
+## [0.3.0] - 2025-11-12
+
+### Added
 - Added `--debug` CLI flag to enable verbose output for diagnosing SSH and command execution issues
 - New `run_command_with_debug()` helper function that captures both stdout and stderr from subprocess commands
 - Debug mode displays stderr output in real-time (in yellow) when it occurs
@@ -29,12 +51,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - This eliminates the overhead of creating 3 separate SSH connections on every refresh cycle
 - Files: `dockerclustermon/__init__.py`
 
-### Deprecated
-- 
-
-### Removed
-- 
-
 ### Fixed
 - Fixed timeout handling to prevent indefinite hanging when SSH connections timeout or fail
 - Added timeout to thread join operations (timeout + 5 seconds buffer) in `run_update()`
@@ -44,9 +60,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added specific error handler in `build_table()` for `ConnectionError` with user-friendly retry message
 - Prevents fallback to local execution when remote SSH connection fails (would have caused confusing errors)
 - Files: `dockerclustermon/__init__.py`
-
-### Security
--
 
 ---
 
