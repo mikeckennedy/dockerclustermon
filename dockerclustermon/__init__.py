@@ -69,6 +69,10 @@ __version_opt = Annotated[
     Optional[bool],
     typer.Option('--version', '-v', help='Show version and exit.', is_eager=True),
 ]
+__debug = Annotated[
+    bool,
+    typer.Option('--debug', help='Enable debug mode to capture and display full stdout/stderr from commands.'),
+]
 
 
 def get_user_host(
@@ -108,6 +112,44 @@ def get_command(
     return cmd_args if no_ssh else ['ssh', user_host, ' '.join(cmd_args)]
 
 
+def run_command_with_debug(cmd: list[str], timeout: int) -> tuple[str, str, int]:
+    """
+    Run a command and capture stdout, stderr, and return code.
+
+    Args:
+        cmd: The command to run as a list of strings
+        timeout: Timeout in seconds
+
+    Returns:
+        Tuple of (stdout, stderr, returncode)
+    """
+    debug = globals().get('DEBUG_MODE', False)
+
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            timeout=timeout,
+            text=True,
+        )
+
+        if debug and result.stderr:
+            console.print(f'[yellow]DEBUG stderr from {" ".join(cmd)[:50]}...: {result.stderr.strip()}[/yellow]')
+
+        if result.returncode != 0:
+            error_msg = f'Command {cmd} returned non-zero exit status {result.returncode}.'
+            if debug:
+                error_msg += f'\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}'
+            raise CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
+
+        return result.stdout, result.stderr, result.returncode
+
+    except subprocess.TimeoutExpired:
+        if debug:
+            console.print(f'[red]DEBUG timeout for {" ".join(cmd)[:50]}...[/red]')
+        raise
+
+
 def live_status(
     host: __host_type = 'localhost',
     username: __user_type = 'root',
@@ -116,12 +158,16 @@ def live_status(
     run_as_sudo: __sudo = False,
     timeout: __timeout = 30,
     version: __version_opt = None,
+    debug: __debug = False,
 ) -> None:
     if version:
         typer.echo(f'Docker Cluster Monitor version {__version__}')
         raise typer.Exit()
 
     setproctitle.setproctitle('dockerclustermon')
+
+    # Store debug flag globally for access by other functions
+    globals()['DEBUG_MODE'] = debug
 
     try:
         print()
@@ -133,6 +179,8 @@ def live_status(
             no_ssh = True
 
         console.print(f'Docker Cluster Monitor v{__version__}')
+        if debug:
+            console.print('[yellow]Debug mode enabled - full stderr/stdout will be captured[/yellow]')
         with console.status('Loading...'):
             table = build_table(username, host, no_ssh, ssh_config, run_as_sudo, timeout)
         console.clear()
@@ -269,15 +317,11 @@ def color_text(text: str, good: Callable) -> Text:
 
 def run_free_command(user_host: str, no_ssh: bool, timeout: int) -> tuple[float, float, float]:
     try:
-        # print("Starting free")
         # Run the program and capture its output
-        output = subprocess.check_output(get_command(['free', '-m'], user_host, no_ssh), timeout=timeout)
-
-        # Convert the output to a string
-        output_string = bytes.decode(output, 'utf-8')
+        stdout, stderr, returncode = run_command_with_debug(get_command(['free', '-m'], user_host, no_ssh), timeout)
 
         # Convert the string to individual lines
-        lines = [line.strip() for line in output_string.split('\n') if line and line.strip()]
+        lines = [line.strip() for line in stdout.split('\n') if line and line.strip()]
 
         # total        used        free      shared  buff/cache   available
         # Mem:            7937        4257         242         160        3436        3211
@@ -292,8 +336,6 @@ def run_free_command(user_host: str, no_ssh: bool, timeout: int) -> tuple[float,
 
         t = total, used, avail
         results['free'] = t
-
-        # print("Free done")
 
         return t
     except Exception as x:
@@ -411,26 +453,21 @@ def join_results(ps_lines, stat_lines) -> list[dict[str, str]]:
 def run_stat_command(user_host: str, no_ssh: bool, run_as_sudo: bool, timeout: int) -> list[dict[str, str]]:
     # noinspection PyBroadException
     try:
-        # print("Starring stat")
         # Run the program and capture its output
-        output = subprocess.check_output(
+        stdout, stderr, returncode = run_command_with_debug(
             get_command(
                 ['docker', 'stats', '--no-stream'],
                 user_host,
                 no_ssh,
                 run_as_sudo,
             ),
-            timeout=timeout,
+            timeout,
         )
 
-        # Convert the output to a string
-        output_string = bytes.decode(output, 'utf-8')
-
         # Convert the string to individual lines
-        lines = [line.strip() for line in output_string.split('\n') if line and line.strip()]
+        lines = [line.strip() for line in stdout.split('\n') if line and line.strip()]
 
         header = parse_stat_header(lines[0])
-        # print(header)
 
         entries = []
         for line in lines[1:]:
@@ -438,7 +475,6 @@ def run_stat_command(user_host: str, no_ssh: bool, run_as_sudo: bool, timeout: i
 
         results['stat'] = entries
 
-        # print("Done with stat")
         return entries
     except TimeoutExpired as t:
         results['error'] = t
@@ -502,25 +538,21 @@ def parse_stat_header(header_text: str) -> list[tuple[str, int]]:
 
 def run_ps_command(user_host: str, no_ssh: bool, run_as_sudo: bool, timeout: int) -> list[dict[str, str]]:
     try:
-        # print("Starting ps ...")
         # Run the program and capture its output
-        output = subprocess.check_output(get_command(['docker', 'ps'], user_host, no_ssh, run_as_sudo), timeout=timeout)
-
-        # Convert the output to a string
-        output_string = bytes.decode(output, 'utf-8')
+        stdout, stderr, returncode = run_command_with_debug(
+            get_command(['docker', 'ps'], user_host, no_ssh, run_as_sudo), timeout
+        )
 
         # Convert the string to individual lines
-        lines = [line.strip() for line in output_string.split('\n') if line and line.strip()]
+        lines = [line.strip() for line in stdout.split('\n') if line and line.strip()]
 
         header = parse_ps_header(lines[0])
-        # print(header)
 
         entries = []
         for line in lines[1:]:
             entries.append(parse_line(line, header))
 
         results['ps'] = entries
-        # print("Done with ps")
         return entries
     except Exception as x:
         results['error'] = x

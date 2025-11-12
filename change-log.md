@@ -8,10 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
--
+- Added `--debug` CLI flag to enable verbose output for diagnosing SSH and command execution issues
+- New `run_command_with_debug()` helper function that captures both stdout and stderr from subprocess commands
+- Debug mode displays stderr output in real-time (in yellow) when it occurs
+- Error messages now include full stdout/stderr output when debug mode is enabled
+- Files: `dockerclustermon/__init__.py`
 
 ### Changed
--
+- Replaced `subprocess.check_output()` with `subprocess.run()` for better error handling and stderr capture
+- Updated `run_free_command()`, `run_stat_command()`, and `run_ps_command()` to use new debug helper
+- Files: `dockerclustermon/__init__.py`
 
 ### Deprecated
 - 
