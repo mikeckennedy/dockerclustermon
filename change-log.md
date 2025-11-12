@@ -40,6 +40,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added timeout to thread join operations (timeout + 5 seconds buffer) in `run_update()`
 - All command functions (`run_stat_command`, `run_ps_command`, `run_free_command`) now properly catch `TimeoutExpired` exceptions
 - Improved debug output to show when threads don't complete within expected timeframe
+- **Enhanced SSH connection error handling**: Added `ConnectionError` detection when SSH connection fails or network is down
+- Added specific error handler in `build_table()` for `ConnectionError` with user-friendly retry message
+- Prevents fallback to local execution when remote SSH connection fails (would have caused confusing errors)
 - Files: `dockerclustermon/__init__.py`
 
 ### Security

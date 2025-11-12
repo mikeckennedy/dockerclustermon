@@ -235,6 +235,7 @@ def run_command_with_debug(
     timeout: int,
     ssh_client: Optional[paramiko.SSHClient] = None,
     run_as_sudo: bool = False,
+    no_ssh: bool = False,
 ) -> tuple[str, str, int]:
     """
     Run a command and capture stdout, stderr, and return code.
@@ -244,10 +245,15 @@ def run_command_with_debug(
         timeout: Timeout in seconds
         ssh_client: Optional SSH client for remote execution
         run_as_sudo: Whether to run with sudo
+        no_ssh: Whether we're running locally or remotely
 
     Returns:
         Tuple of (stdout, stderr, returncode)
     """
+    # If we should be using SSH but don't have a client, that's an error
+    if not no_ssh and ssh_client is None:
+        raise ConnectionError('SSH connection failed - unable to connect to remote host')
+
     # If we have an SSH client, use it
     if ssh_client is not None:
         cmd_args = (['sudo'] + cmd) if run_as_sudo else cmd
@@ -434,6 +440,21 @@ def build_table(username: str, host: str, no_ssh: bool, ssh_config: bool, run_as
         )
         time.sleep(1)
         return table
+    except ConnectionError as ce:
+        # SSH connection failed - display helpful error and retry
+        if DEBUG_MODE:
+            raise
+        error_formatted_date = datetime.datetime.now().strftime('%b %d, %Y @ %I:%M:%S %p')
+        table.add_row(
+            'Error',
+            f'SSH connection failed on {error_formatted_date}: {ce}. Retrying',
+            '',
+            '',
+            '',
+            '',
+        )
+        time.sleep(1)
+        return table
     except CalledProcessError as cpe:
         # In debug mode, re-raise to be handled at the top level
         if DEBUG_MODE:
@@ -504,10 +525,12 @@ def run_free_command(
         # Run the program and capture its output
         if no_ssh:
             # Local execution
-            stdout, stderr, returncode = run_command_with_debug(['free', '-m'], timeout)
+            stdout, stderr, returncode = run_command_with_debug(['free', '-m'], timeout, no_ssh=True)
         else:
             # Remote execution using persistent SSH connection
-            stdout, stderr, returncode = run_command_with_debug(['free', '-m'], timeout, ssh_client=client)
+            stdout, stderr, returncode = run_command_with_debug(
+                ['free', '-m'], timeout, ssh_client=client, no_ssh=False
+            )
 
         # Convert the string to individual lines
         lines = [line.strip() for line in stdout.split('\n') if line and line.strip()]
@@ -663,6 +686,7 @@ def run_stat_command(
                 ['docker', 'stats', '--no-stream'],
                 timeout,
                 run_as_sudo=run_as_sudo,
+                no_ssh=True,
             )
         else:
             # Remote execution using persistent SSH connection
@@ -671,6 +695,7 @@ def run_stat_command(
                 timeout,
                 ssh_client=client,
                 run_as_sudo=run_as_sudo,
+                no_ssh=False,
             )
 
         # Convert the string to individual lines
@@ -752,11 +777,13 @@ def run_ps_command(
         # Run the program and capture its output
         if no_ssh:
             # Local execution
-            stdout, stderr, returncode = run_command_with_debug(['docker', 'ps'], timeout, run_as_sudo=run_as_sudo)
+            stdout, stderr, returncode = run_command_with_debug(
+                ['docker', 'ps'], timeout, run_as_sudo=run_as_sudo, no_ssh=True
+            )
         else:
             # Remote execution using persistent SSH connection
             stdout, stderr, returncode = run_command_with_debug(
-                ['docker', 'ps'], timeout, ssh_client=client, run_as_sudo=run_as_sudo
+                ['docker', 'ps'], timeout, ssh_client=client, run_as_sudo=run_as_sudo, no_ssh=False
             )
 
         # Convert the string to individual lines
