@@ -38,6 +38,7 @@ results: ResultsType = {
 }
 workers = []
 console = Console()
+DEBUG_MODE: bool = False
 
 __host_type = Annotated[
     str,
@@ -123,8 +124,6 @@ def run_command_with_debug(cmd: list[str], timeout: int) -> tuple[str, str, int]
     Returns:
         Tuple of (stdout, stderr, returncode)
     """
-    debug = globals().get('DEBUG_MODE', False)
-
     try:
         result = subprocess.run(
             cmd,
@@ -133,19 +132,19 @@ def run_command_with_debug(cmd: list[str], timeout: int) -> tuple[str, str, int]
             text=True,
         )
 
-        if debug and result.stderr:
+        if DEBUG_MODE and result.stderr:
             console.print(f'[yellow]DEBUG stderr from {" ".join(cmd)[:50]}...: {result.stderr.strip()}[/yellow]')
 
         if result.returncode != 0:
             error_msg = f'Command {cmd} returned non-zero exit status {result.returncode}.'
-            if debug:
+            if DEBUG_MODE:
                 error_msg += f'\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}'
             raise CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
 
         return result.stdout, result.stderr, result.returncode
 
     except subprocess.TimeoutExpired:
-        if debug:
+        if DEBUG_MODE:
             console.print(f'[red]DEBUG timeout for {" ".join(cmd)[:50]}...[/red]')
         raise
 
@@ -160,6 +159,8 @@ def live_status(
     version: __version_opt = None,
     debug: __debug = False,
 ) -> None:
+    global DEBUG_MODE
+
     if version:
         typer.echo(f'Docker Cluster Monitor version {__version__}')
         raise typer.Exit()
@@ -167,7 +168,7 @@ def live_status(
     setproctitle.setproctitle('dockerclustermon')
 
     # Store debug flag globally for access by other functions
-    globals()['DEBUG_MODE'] = debug
+    DEBUG_MODE = debug
 
     try:
         print()
@@ -223,8 +224,20 @@ def run_update(username: str, host: str, no_ssh: bool, ssh_config: bool, run_as_
 
     for w in workers:
         w.start()
+
+    # Join threads with a timeout to prevent indefinite hanging
+    # Add a buffer to the timeout to allow for thread overhead
+    thread_timeout = timeout + 5
     for w in workers:
-        w.join()
+        w.join(timeout=thread_timeout)
+        if w.is_alive():
+            # Thread is still running after timeout
+            if DEBUG_MODE:
+                console.print(f'[red]DEBUG: Thread {w.name} did not complete within {thread_timeout} seconds[/red]')
+            # Since threads are daemon threads, they'll be killed when main exits
+            # But we should raise a timeout error now
+            if not results['error']:
+                results['error'] = TimeoutExpired(cmd='thread operations', timeout=thread_timeout)
 
     if results['error']:
         raise results['error']
@@ -246,8 +259,14 @@ def build_table(username: str, host: str, no_ssh: bool, ssh_config: bool, run_as
     try:
         run_update(username, host, no_ssh, ssh_config, run_as_sudo, timeout)
         reduced, total, total_cpu, total_mem, used = process_results()
-    except TimeoutExpired:
+    except TimeoutExpired as te:
         timeout_formatted_date = datetime.datetime.now().strftime('%b %d, %Y @ %I:%M:%S %p')
+        if DEBUG_MODE:
+            console.print(
+                f'[red]Error: The server did not response after {timeout} seconds on {timeout_formatted_date}[/red]'
+            )
+            console.print(f'[red]Details: {te}[/red]')
+            sys.exit(1)
         table.add_row(
             'Error',
             f'The server did not response after {timeout} seconds on {timeout_formatted_date}. Retrying',
@@ -259,9 +278,18 @@ def build_table(username: str, host: str, no_ssh: bool, ssh_config: bool, run_as
         time.sleep(1)
         return table
     except CalledProcessError as cpe:
+        if DEBUG_MODE:
+            console.print(f'[red]Error: {cpe}[/red]')
+            sys.exit(1)
         print(f'Error: {cpe}')
         return None
     except Exception as x:
+        if DEBUG_MODE:
+            console.print(f'[red]Error: {x}[/red]')
+            import traceback
+
+            console.print('[red]' + traceback.format_exc() + '[/red]')
+            sys.exit(1)
         table.add_row('Error', str(x), '', '', '', '')
         time.sleep(1)
         return table
@@ -338,6 +366,18 @@ def run_free_command(user_host: str, no_ssh: bool, timeout: int) -> tuple[float,
         results['free'] = t
 
         return t
+    except TimeoutExpired as timeout_err:
+        results['error'] = timeout_err
+        return 0.002, 0, 0
+    except CalledProcessError as cpe:
+        msg = str(cpe)
+        if "No such file or directory: 'free'" in msg:
+            results['error'] = None
+            t = 0.001, 0, 0
+            results['free'] = t
+            return t
+        results['error'] = cpe
+        return 0.002, 0, 0
     except Exception as x:
         msg = str(x)
         if "No such file or directory: 'free'" in msg:
@@ -554,6 +594,12 @@ def run_ps_command(user_host: str, no_ssh: bool, run_as_sudo: bool, timeout: int
 
         results['ps'] = entries
         return entries
+    except TimeoutExpired as t:
+        results['error'] = t
+        return []
+    except CalledProcessError as e:
+        results['error'] = e
+        return []
     except Exception as x:
         results['error'] = x
         return []
