@@ -182,6 +182,7 @@ def live_status(
         console.print(f'Docker Cluster Monitor v{__version__}')
         if debug:
             console.print('[yellow]Debug mode enabled - full stderr/stdout will be captured[/yellow]')
+            console.print('[yellow]Errors will cause immediate exit with full details[/yellow]')
         with console.status('Loading...'):
             table = build_table(username, host, no_ssh, ssh_config, run_as_sudo, timeout)
         console.clear()
@@ -198,6 +199,28 @@ def live_status(
         for w in workers:
             w.join()
         print('kthxbye!')
+    except TimeoutExpired as te:
+        print()
+        console.print('[red]Error: Timeout expired[/red]')
+        console.print(f'[red]Details: {te}[/red]')
+        sys.exit(1)
+    except CalledProcessError as cpe:
+        print()
+        console.print(f'[red]Error: Command failed with exit code {cpe.returncode}[/red]')
+        console.print(f'[red]Command: {" ".join(str(c) for c in cpe.cmd)}[/red]')
+        if cpe.stdout:
+            console.print(f'[yellow]STDOUT:[/yellow]\n{cpe.stdout}')
+        if cpe.stderr:
+            console.print(f'[yellow]STDERR:[/yellow]\n{cpe.stderr}')
+        sys.exit(1)
+    except Exception as x:
+        print()
+        console.print(f'[red]Error: {type(x).__name__}: {x}[/red]')
+        import traceback
+
+        console.print('[red]Traceback:[/red]')
+        console.print(traceback.format_exc())
+        sys.exit(1)
 
 
 def process_results():
@@ -259,14 +282,11 @@ def build_table(username: str, host: str, no_ssh: bool, ssh_config: bool, run_as
     try:
         run_update(username, host, no_ssh, ssh_config, run_as_sudo, timeout)
         reduced, total, total_cpu, total_mem, used = process_results()
-    except TimeoutExpired as te:
-        timeout_formatted_date = datetime.datetime.now().strftime('%b %d, %Y @ %I:%M:%S %p')
+    except TimeoutExpired:
+        # In debug mode, re-raise to be handled at the top level
         if DEBUG_MODE:
-            console.print(
-                f'[red]Error: The server did not response after {timeout} seconds on {timeout_formatted_date}[/red]'
-            )
-            console.print(f'[red]Details: {te}[/red]')
-            sys.exit(1)
+            raise
+        timeout_formatted_date = datetime.datetime.now().strftime('%b %d, %Y @ %I:%M:%S %p')
         table.add_row(
             'Error',
             f'The server did not response after {timeout} seconds on {timeout_formatted_date}. Retrying',
@@ -278,18 +298,15 @@ def build_table(username: str, host: str, no_ssh: bool, ssh_config: bool, run_as
         time.sleep(1)
         return table
     except CalledProcessError as cpe:
+        # In debug mode, re-raise to be handled at the top level
         if DEBUG_MODE:
-            console.print(f'[red]Error: {cpe}[/red]')
-            sys.exit(1)
+            raise
         print(f'Error: {cpe}')
         return None
     except Exception as x:
+        # In debug mode, re-raise to be handled at the top level
         if DEBUG_MODE:
-            console.print(f'[red]Error: {x}[/red]')
-            import traceback
-
-            console.print('[red]' + traceback.format_exc() + '[/red]')
-            sys.exit(1)
+            raise
         table.add_row('Error', str(x), '', '', '', '')
         time.sleep(1)
         return table
