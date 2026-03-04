@@ -5,25 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.1] - 2026-03-03
 
 ### Added
-- 
+- Windows Docker support: `docker stats` output with `PRIV WORKING SET` column is now parsed correctly
+- New `normalize_stat_dict()` function maps Windows Docker format to internal column names
+- Unavailable metrics (Mem %, Limit) display as dimmed "N/A" on Windows Docker
+- Files: `dockerclustermon/__init__.py`
 
 ### Changed
-- 
-
-### Deprecated
-- 
-
-### Removed
-- 
+- `parse_stat_header()` now splits columns into required (all platforms) and optional (platform-specific)
+- Platform-specific columns (`MEM USAGE / LIMIT`, `MEM %`, `PIDS`, `PRIV WORKING SET`) are silently skipped when absent
+- No changes to Linux/Mac behavior
+- Files: `dockerclustermon/__init__.py`
 
 ### Fixed
-- 
-
-### Security
--
+- Fixed crash on Windows Docker where `MEM USAGE / LIMIT`, `MEM %`, and `PIDS` columns don't exist (fixes #5)
+- `color_number()` no longer crashes on non-numeric "N/A" values
+- `split_mem()` gracefully handles missing `MEM USAGE / LIMIT` key
+- Files: `dockerclustermon/__init__.py`
 
 ---
 
