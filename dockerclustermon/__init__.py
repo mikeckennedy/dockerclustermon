@@ -499,6 +499,9 @@ def build_table(username: str, host: str, no_ssh: bool, ssh_config: bool, run_as
 
 
 def color_number(text: str, low: int, mid: int) -> Text:
+    if text == 'N/A':
+        return Text(text, style='dim')
+
     num_text = text.replace('%', '').replace('GB', '').replace('MB', '').replace('KB', '')
     num = float(num_text)
 
@@ -618,15 +621,29 @@ def reduce_lines(joined: list[dict[str, str]]) -> list[dict[str, str]]:
     # keep_keys = { 'NAME', 'CREATED', 'STATUS', 'CPU %', 'MEM USAGE / LIMIT', 'MEM %'}
 
     for j in joined:
+        j = normalize_stat_dict(j)
         j = split_mem(j)
+
+        cpu_raw = j['CPU %'].replace('%', '')
+        cpu = str(int(float(cpu_raw))) + ' %'
+
+        mem_pct_raw = j.get('MEM %', 'N/A')
+        mem_pct = 'N/A' if mem_pct_raw == 'N/A' else str(int(float(mem_pct_raw.replace('%', '')))) + ' %'
+
+        mem_raw = j.get('MEM USAGE', 'N/A')
+        mem = 'N/A' if mem_raw == 'N/A' else mem_raw.replace('KB', ' KB').replace('MB', ' MB').replace('GB', ' GB').replace('  ', ' ')
+
+        limit_raw = j.get('MEM LIMIT', 'N/A')
+        limit = 'N/A' if limit_raw == 'N/A' else limit_raw.replace('KB', ' KB').replace('MB', ' MB').replace('GB', ' GB').replace('  ', ' ')
+
         reduced = {
             'Name': j['NAME'],
             'Created': j['CREATED'],
             'Status': j['STATUS'],
-            'CPU': str(int(float(j['CPU %'].replace('%', '')))) + ' %',
-            'Mem': j['MEM USAGE'].replace('KB', ' KB').replace('MB', ' MB').replace('GB', ' GB').replace('  ', ' '),
-            'Mem %': str(int(float(j['MEM %'].replace('%', '')))) + ' %',
-            'Limit': j['MEM LIMIT'].replace('KB', ' KB').replace('MB', ' MB').replace('GB', ' GB').replace('  ', ' '),
+            'CPU': cpu,
+            'Mem': mem,
+            'Mem %': mem_pct,
+            'Limit': limit,
         }
         new_lines.append(reduced)
 
@@ -641,8 +658,34 @@ def reduce_lines(joined: list[dict[str, str]]) -> list[dict[str, str]]:
     return new_lines
 
 
+def normalize_stat_dict(d: dict[str, str]) -> dict[str, str]:
+    """Normalize Windows Docker stat dicts to the internal format expected downstream.
+
+    On Linux/Mac this is a no-op. On Windows Docker, maps PRIV WORKING SET
+    to MEM USAGE and fills missing keys with N/A.
+    """
+    if 'MEM USAGE / LIMIT' in d:
+        return d
+
+    if 'PRIV WORKING SET' in d:
+        d['MEM USAGE'] = d['PRIV WORKING SET'].replace('iB', 'B')
+    else:
+        d['MEM USAGE'] = 'N/A'
+
+    d['MEM LIMIT'] = 'N/A'
+    d['MEM %'] = 'N/A'
+
+    if 'PIDS' not in d:
+        d['PIDS'] = 'N/A'
+
+    return d
+
+
 def split_mem(j: dict) -> dict:
     key = 'MEM USAGE / LIMIT'
+    if key not in j:
+        # Windows format: normalize_stat_dict() already set MEM USAGE and MEM LIMIT
+        return j
     # Example: 781.5MiB / 1.5GiB
     value = j[key]
     parts = [v.strip() for v in value.split('/')]
@@ -742,30 +785,47 @@ def parse_free_header(header_text: str) -> list[tuple[str, int]]:
 
 
 def parse_stat_header(header_text: str) -> list[tuple[str, int]]:
-    names = [
+    # Columns present on all platforms
+    required_names = [
         'CONTAINER ID',
         'NAME',
         'CPU %',
-        'MEM USAGE / LIMIT',
-        'MEM %',
         'NET I/O',
         'BLOCK I/O',
+    ]
+    # Linux/Mac columns (not present on Windows Docker)
+    linux_names = [
+        'MEM USAGE / LIMIT',
+        'MEM %',
         'PIDS',
     ]
+    # Windows Docker columns (not present on Linux/Mac)
+    windows_names = [
+        'PRIV WORKING SET',
+    ]
+
     positions = []
     header_lower = header_text.lower()
 
-    for n in names:
+    for n in required_names:
         idx = header_lower.find(n.lower())
         if idx == -1:
             raise ValueError(
                 f"Failed to parse 'docker stats' output. Expected column '{n}' not found.\n"
                 f'Actual header: {header_text!r}\n'
-                f'Expected columns: {names}\n'
+                f'Expected columns: {required_names}\n'
                 f'This may indicate a Docker version or platform difference.'
             )
-        item = (n, idx)
-        positions.append(item)
+        positions.append((n, idx))
+
+    # Platform-specific columns: include if present, skip if absent
+    for n in linux_names + windows_names:
+        idx = header_lower.find(n.lower())
+        if idx != -1:
+            positions.append((n, idx))
+
+    # Sort by position so parse_line() slicing works correctly
+    positions.sort(key=lambda x: x[1])
 
     return positions
 
