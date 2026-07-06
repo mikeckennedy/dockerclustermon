@@ -365,11 +365,11 @@ def process_results():
     ps_lines: list[dict[str, str]] = results['ps']
     stat_lines: list[dict[str, str]] = results['stat']
     total, used, avail = results['free']
-    joined = join_results(ps_lines, stat_lines)
+    joined, starting = join_results(ps_lines, stat_lines)
     reduced = reduce_lines(joined)
     total_cpu = total_percent(reduced, 'CPU')
     total_mem = total_sizes(reduced, 'Mem')
-    return reduced, total, total_cpu, total_mem, used
+    return reduced, total, total_cpu, total_mem, used, starting
 
 
 def run_update(username: str, host: str, no_ssh: bool, ssh_config: bool, run_as_sudo: bool, timeout: int):
@@ -424,7 +424,7 @@ def build_table(username: str, host: str, no_ssh: bool, ssh_config: bool, run_as
     # noinspection PyBroadException
     try:
         run_update(username, host, no_ssh, ssh_config, run_as_sudo, timeout)
-        reduced, total, total_cpu, total_mem, used = process_results()
+        reduced, total, total_cpu, total_mem, used, starting = process_results()
     except TimeoutExpired:
         # In debug mode, re-raise to be handled at the top level
         if DEBUG_MODE:
@@ -474,12 +474,12 @@ def build_table(username: str, host: str, no_ssh: bool, ssh_config: bool, run_as
             Text(container['Name'], style='bold'),
             color_text(
                 container['Status'],
-                lambda t: not any(w in t for w in {'unhealthy', 'restart'}),
+                lambda t: not any(w in t.lower() for w in {'unhealthy', 'restart'}),
             ),
             color_number(container['CPU'], low=5, mid=25),
             color_number(container['Mem %'], low=25, mid=65),
-            container['Mem'],
-            container['Limit'],
+            dim_if_na(container['Mem']),
+            dim_if_na(container['Limit']),
         )
 
     table.add_row()
@@ -495,6 +495,24 @@ def build_table(username: str, host: str, no_ssh: bool, ssh_config: bool, run_as
         f'{used:,.2f} GB',
         f'{total:,.2f} GB',
     )
+
+    if starting:
+        count = len(starting)
+        noun = 'container' if count == 1 else 'containers'
+        verb = 'is' if count == 1 else 'are'
+        table.add_row()
+        table.add_row(
+            Text('Note', style='yellow'),
+            Text(
+                f'{count} {noun} {verb} starting or restarting; metrics show as N/A until they settle.',
+                style='yellow',
+            ),
+            '',
+            '',
+            '',
+            '',
+        )
+
     return table
 
 
@@ -519,6 +537,11 @@ def color_text(text: str, good: Callable) -> Text:
         return Text(text)
 
     return Text(text, style='bold red')
+
+
+def dim_if_na(text: str) -> Text:
+    # Dim 'N/A' cells (e.g. metrics for a starting/restarting container) so real values stand out.
+    return Text(text, style='dim') if text == 'N/A' else Text(text)
 
 
 def run_free_command(
@@ -624,17 +647,25 @@ def reduce_lines(joined: list[dict[str, str]]) -> list[dict[str, str]]:
         j = normalize_stat_dict(j)
         j = split_mem(j)
 
-        cpu_raw = j['CPU %'].replace('%', '')
-        cpu = str(int(float(cpu_raw))) + ' %'
+        cpu_pct_raw = j.get('CPU %', 'N/A')
+        cpu = 'N/A' if cpu_pct_raw == 'N/A' else str(int(float(cpu_pct_raw.replace('%', '')))) + ' %'
 
         mem_pct_raw = j.get('MEM %', 'N/A')
         mem_pct = 'N/A' if mem_pct_raw == 'N/A' else str(int(float(mem_pct_raw.replace('%', '')))) + ' %'
 
         mem_raw = j.get('MEM USAGE', 'N/A')
-        mem = 'N/A' if mem_raw == 'N/A' else mem_raw.replace('KB', ' KB').replace('MB', ' MB').replace('GB', ' GB').replace('  ', ' ')
+        mem = (
+            'N/A'
+            if mem_raw == 'N/A'
+            else mem_raw.replace('KB', ' KB').replace('MB', ' MB').replace('GB', ' GB').replace('  ', ' ')
+        )
 
         limit_raw = j.get('MEM LIMIT', 'N/A')
-        limit = 'N/A' if limit_raw == 'N/A' else limit_raw.replace('KB', ' KB').replace('MB', ' MB').replace('GB', ' GB').replace('  ', ' ')
+        limit = (
+            'N/A'
+            if limit_raw == 'N/A'
+            else limit_raw.replace('KB', ' KB').replace('MB', ' MB').replace('GB', ' GB').replace('  ', ' ')
+        )
 
         reduced = {
             'Name': j['NAME'],
@@ -696,25 +727,49 @@ def split_mem(j: dict) -> dict:
     return j
 
 
-def join_results(ps_lines, stat_lines) -> list[dict[str, str]]:
+def join_results(ps_lines, stat_lines) -> tuple[list[dict[str, str]], list[str]]:
+    """Join `docker ps` and `docker stats` rows by container NAME.
+
+    The two commands run separately and can disagree about membership or ordering while
+    a container is starting or restarting (it may appear in one list but not the other,
+    or the lists may simply be ordered differently). We join on names present in both
+    lists; for a container that only one command knows about we still emit a row with
+    whatever fields we have — its `docker ps` STATUS (e.g. "Restarting (1) 4 seconds
+    ago") is the useful part — and let the missing metrics render as N/A downstream.
+    The in-transition names are returned as `starting` so the caller can flag them.
+    """
     join_on = 'NAME'
 
+    stat_by_name = {s[join_on]: s for s in stat_lines}
+    ps_names = {p[join_on] for p in ps_lines}
+
     joined_lines = []
-    ps_dict: dict[str, str]
-    stat_lines: list[dict[str, str]]
+    starting = []
 
-    for ps_dict, stat_dict in zip(ps_lines, stat_lines):
-        # noinspection PyTypeChecker
-        if ps_dict[join_on] != stat_dict[join_on]:
-            raise Exception('Lines do not match')
-
+    for ps_dict in ps_lines:
+        name = ps_dict[join_on]
         joined = ps_dict.copy()
-        # noinspection PyArgumentList
-        joined.update(**stat_dict)
-
+        stat_dict = stat_by_name.get(name)
+        if stat_dict is None:
+            # In `docker ps` but has no stats yet — starting/restarting. Keep the row so
+            # its STATUS stays visible; the missing CPU/memory metrics become N/A below.
+            starting.append(name)
+        else:
+            joined.update(stat_dict)
         joined_lines.append(joined)
 
-    return joined_lines
+    # In `docker stats` but not `docker ps` (rarer transient): we have metrics but no ps
+    # STATUS/CREATED, so synthesize placeholders and keep the row.
+    for name, stat_dict in stat_by_name.items():
+        if name in ps_names:
+            continue
+        starting.append(name)
+        joined = stat_dict.copy()
+        joined.setdefault('STATUS', 'Starting')
+        joined.setdefault('CREATED', 'N/A')
+        joined_lines.append(joined)
+
+    return joined_lines, starting
 
 
 def run_stat_command(

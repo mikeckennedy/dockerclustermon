@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- No longer replaces the whole dashboard with an "Error / Lines do not match" row when a
+  container is starting or restarting. `docker ps` and `docker stats` are now joined by
+  container name instead of by list position, so a container appearing in one command's
+  output but not the other's (or the two commands returning containers in a different
+  order) no longer breaks the table.
+- Restarting/unhealthy container statuses are now highlighted regardless of case. Docker
+  reports "Restarting", which the previous case-sensitive check for "restart" missed.
+
+### Changed
+- Containers that only one of `docker ps` / `docker stats` knows about (i.e. mid
+  start/restart) are now **kept in the table** instead of being dropped. Their
+  `docker ps` STATUS is preserved (e.g. "Restarting (1) 4 seconds ago") and the metrics
+  that aren't available yet render as a dimmed "N/A". A yellow "Note" row summarizes how
+  many containers are starting or restarting.
+- All unavailable metric cells (CPU %, Mem %, Mem, Limit) now render as a dimmed "N/A"
+  for a consistent look.
+- Files: `dockerclustermon/__init__.py` (functions: `join_results`, `reduce_lines`, `build_table`, new `dim_if_na`; case-insensitive status match)
+
 ## [0.3.1] - 2026-03-03
 
 ### Added
