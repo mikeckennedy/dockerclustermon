@@ -20,8 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Containers that only one of `docker ps` / `docker stats` knows about (i.e. mid
   start/restart) are now **kept in the table** instead of being dropped. Their
   `docker ps` STATUS is preserved (e.g. "Restarting (1) 4 seconds ago") and the metrics
-  that aren't available yet render as a dimmed "N/A". A yellow "Note" row summarizes how
-  many containers are starting or restarting.
+  that aren't available yet render as a dimmed "N/A". A yellow note line is printed
+  *below* the table summarizing how many containers are starting or restarting (kept out
+  of the table so its length can't stretch a column and distort the layout).
 - All unavailable metric cells (CPU %, Mem %, Mem, Limit) now render as a dimmed "N/A"
   for a consistent look.
 - Files: `dockerclustermon/__init__.py` (functions: `join_results`, `reduce_lines`, `build_table`, new `dim_if_na`; case-insensitive status match)

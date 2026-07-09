@@ -21,7 +21,7 @@ import rich.live
 import rich.table
 import setproctitle
 import typer
-from rich.console import Console
+from rich.console import Console, Group
 from rich.text import Text
 
 
@@ -500,18 +500,13 @@ def build_table(username: str, host: str, no_ssh: bool, ssh_config: bool, run_as
         count = len(starting)
         noun = 'container' if count == 1 else 'containers'
         verb = 'is' if count == 1 else 'are'
-        table.add_row()
-        table.add_row(
-            Text('Note', style='yellow'),
-            Text(
-                f'{count} {noun} {verb} starting or restarting; metrics show as N/A until they settle.',
-                style='yellow',
-            ),
-            '',
-            '',
-            '',
-            '',
+        note = Text(
+            f'Note: {count} {noun} {verb} starting or restarting; metrics show as N/A until they settle.',
+            style='yellow',
         )
+        # Render the note *below* the table (as a separate renderable) rather than as a
+        # table row, so its length can't stretch the Status column and distort the layout.
+        return Group(table, Text(''), note)
 
     return table
 
